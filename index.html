@@ -23,14 +23,14 @@
 
     <script>
         // --- Estado Global com Persistência ---
-        const STORAGE_KEY = 'asmeto_players_v2';
+        const STORAGE_KEY = 'asmeto_players_v3';
 
         function loadInitialState() {
             const savedPlayers = localStorage.getItem(STORAGE_KEY);
             return {
                 view: 'setup',
                 players: savedPlayers ? JSON.parse(savedPlayers) : [],
-                confirmedIds: [], // IDs dos jogadores que confirmaram presença hoje
+                confirmedIds: [], 
                 newPlayerName: '',
                 playersPerTeam: 5,
                 teamA: [],
@@ -41,8 +41,9 @@
                 timer: 600,
                 isActive: false,
                 matchCount: 0,
-                showGoalModal: null,
-                selectedScorer: null,
+                showEventModal: null, // 'A' ou 'B'
+                eventType: null, // 'goal', 'yellow', 'red'
+                selectedPlayerId: null,
                 subModal: null
             };
         }
@@ -121,11 +122,13 @@
                 name: name,
                 goals: 0,
                 assists: 0,
+                yellowCards: 0,
+                redCards: 0,
                 wins: 0,
                 matches: 0
             };
             state.players.push(player);
-            state.confirmedIds.push(player.id); // Auto-confirma ao adicionar
+            state.confirmedIds.push(player.id);
             state.newPlayerName = '';
             savePlayersToStorage();
             render();
@@ -141,12 +144,10 @@
 
         function startMatch() {
             const activePlayers = state.players.filter(p => state.confirmedIds.includes(p.id));
-            
             if (activePlayers.length < state.playersPerTeam * 2) {
                 alert(`Confirme pelo menos ${state.playersPerTeam * 2} jogadores para iniciar.`);
                 return;
             }
-
             const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
             state.teamA = shuffled.slice(0, state.playersPerTeam);
             state.teamB = shuffled.slice(state.playersPerTeam, state.playersPerTeam * 2);
@@ -165,15 +166,26 @@
             });
 
             state.matchCount++;
-            const nextPlayers = state.waitingList.slice(0, state.playersPerTeam);
-            const newWaiting = [...state.waitingList.slice(state.playersPerTeam), ...losers];
+            let nextTeam = [];
+            let remainingLosers = [...losers];
 
-            if (winner === 'A') state.teamB = nextPlayers;
-            else state.teamA = nextPlayers;
+            if (state.waitingList.length >= state.playersPerTeam) {
+                nextTeam = state.waitingList.slice(0, state.playersPerTeam);
+                state.waitingList = state.waitingList.slice(state.playersPerTeam);
+            } else {
+                nextTeam = [...state.waitingList];
+                const needed = state.playersPerTeam - nextTeam.length;
+                const takenFromLosers = remainingLosers.slice(0, needed);
+                remainingLosers = remainingLosers.slice(needed);
+                nextTeam = [...nextTeam, ...takenFromLosers];
+                state.waitingList = [];
+            }
 
-            state.waitingList = newWaiting;
-            state.scoreA = 0;
-            state.scoreB = 0;
+            state.waitingList = [...state.waitingList, ...remainingLosers];
+            if (winner === 'A') state.teamB = nextTeam;
+            else state.teamA = nextTeam;
+
+            state.scoreA = 0; state.scoreB = 0;
             state.timer = 600;
             toggleTimer(false);
             savePlayersToStorage();
@@ -232,11 +244,11 @@
                         </div>
                     </div>
 
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 text-center">Configuração da Partida</label>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 text-center">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Configuração da Partida</label>
                         <div class="flex items-center justify-center gap-4">
                             <button onclick="state.playersPerTeam=Math.max(2,state.playersPerTeam-1); render()" class="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center font-bold">-</button>
-                            <div class="text-center">
+                            <div class="text-center min-w-[60px]">
                                 <span class="text-3xl font-black-italic text-green-700">${state.playersPerTeam}</span>
                                 <p class="text-[8px] font-bold text-gray-400 uppercase">Por Time</p>
                             </div>
@@ -264,7 +276,11 @@
                             <div class="flex flex-col items-center gap-2">
                                 <span class="text-[10px] font-black uppercase text-green-500">TIME A</span>
                                 <span class="text-7xl font-black-italic">${state.scoreA}</span>
-                                <button onclick="state.showGoalModal='A'; render();" class="mt-2 bg-green-600 p-3 rounded-full"><i data-lucide="plus-circle" size="28"></i></button>
+                                <div class="flex gap-1 mt-2">
+                                    <button onclick="state.showEventModal='A'; state.eventType='goal'; render();" class="bg-green-600 p-2 rounded-lg text-white"><i data-lucide="plus-circle" size="20"></i></button>
+                                    <button onclick="state.showEventModal='A'; state.eventType='yellow'; render();" class="bg-yellow-500 p-2 rounded-lg text-black"><i data-lucide="copy" size="20"></i></button>
+                                    <button onclick="state.showEventModal='A'; state.eventType='red'; render();" class="bg-red-600 p-2 rounded-lg text-white"><i data-lucide="copy" size="20"></i></button>
+                                </div>
                             </div>
                             <div class="flex flex-col items-center">
                                 <div class="text-4xl font-mono font-black mb-2 text-green-400">${formatTime(state.timer)}</div>
@@ -276,7 +292,11 @@
                             <div class="flex flex-col items-center gap-2">
                                 <span class="text-[10px] font-black uppercase text-blue-500">TIME B</span>
                                 <span class="text-7xl font-black-italic">${state.scoreB}</span>
-                                <button onclick="state.showGoalModal='B'; render();" class="mt-2 bg-blue-600 p-3 rounded-full"><i data-lucide="plus-circle" size="28"></i></button>
+                                <div class="flex gap-1 mt-2">
+                                    <button onclick="state.showEventModal='B'; state.eventType='goal'; render();" class="bg-blue-600 p-2 rounded-lg text-white"><i data-lucide="plus-circle" size="20"></i></button>
+                                    <button onclick="state.showEventModal='B'; state.eventType='yellow'; render();" class="bg-yellow-500 p-2 rounded-lg text-black"><i data-lucide="copy" size="20"></i></button>
+                                    <button onclick="state.showEventModal='B'; state.eventType='red'; render();" class="bg-red-600 p-2 rounded-lg text-white"><i data-lucide="copy" size="20"></i></button>
+                                </div>
                             </div>
                         </div>
                         <div class="flex gap-3">
@@ -298,7 +318,6 @@
                                     <span class="text-amber-400 font-mono">${idx+1}º</span> ${p.name}
                                 </span>
                             `).join('')}
-                            ${state.waitingList.length === 0 ? '<p class="text-amber-600/50 text-[10px] font-bold">Sem reservas no momento.</p>' : ''}
                         </div>
                     </div>
                 </div>
@@ -309,14 +328,13 @@
             const color = label === 'A' ? 'text-green-600' : 'text-blue-600';
             const bgColor = label === 'A' ? 'bg-green-50/50' : 'bg-blue-50/50';
             return `
-                <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
-                    <div class="absolute top-0 right-0 p-4 opacity-5"><i data-lucide="shield" size="40"></i></div>
+                <div class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
                     <h4 class="font-black text-gray-400 mb-4 text-[10px] uppercase flex justify-between">TIME ${label} <span class="${color}">${team.length} JOGS</span></h4>
                     <div class="space-y-2">
                         ${team.map(p => `
                             <div class="flex justify-between items-center p-3 ${bgColor} rounded-2xl">
                                 <span class="font-black text-gray-800 italic uppercase text-xs">${p.name}</span>
-                                <button onclick="openSubModal('${label}', ${p.id})" class="text-amber-600 p-2 bg-white rounded-xl shadow-sm border border-gray-100 active:scale-90 transition-all"><i data-lucide="refresh-cw" size="14"></i></button>
+                                <button onclick="openSubModal('${label}', ${p.id})" class="text-amber-600 p-2 bg-white rounded-xl shadow-sm"><i data-lucide="refresh-cw" size="14"></i></button>
                             </div>
                         `).join('')}
                     </div>
@@ -333,29 +351,40 @@
             });
 
             return `
-                <div class="space-y-6 pb-20">
+                <div class="space-y-6 pb-20 overflow-x-hidden">
                     <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm">
-                        <h2 class="text-xl font-black-italic tracking-tighter flex items-center gap-2"><i data-lucide="trophy" class="text-yellow-500"></i> RANKING GERAL</h2>
-                        <button onclick="exportCSV()" class="bg-zinc-900 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase flex items-center gap-2 shadow-md"><i data-lucide="download" size="16"></i> CSV</button>
+                        <h2 class="text-xl font-black-italic tracking-tighter flex items-center gap-2"><i data-lucide="trophy" class="text-yellow-500"></i> RELATÓRIO</h2>
+                        <button onclick="exportCSV()" class="bg-zinc-900 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase flex items-center gap-2"><i data-lucide="download" size="16"></i> CSV</button>
                     </div>
-                    <div class="bg-zinc-900 rounded-[32px] overflow-hidden border border-zinc-800 shadow-2xl">
-                        <table class="w-full text-left text-zinc-300">
+                    <div class="bg-zinc-900 rounded-[32px] overflow-x-auto custom-scrollbar border border-zinc-800 shadow-2xl">
+                        <table class="w-full text-left text-zinc-300 min-w-[500px]">
                             <thead class="bg-zinc-800 text-zinc-500 text-[8px] uppercase font-black tracking-widest">
-                                <tr><th class="px-5 py-4 text-center">#</th><th class="px-5 py-4">ATLETA</th><th class="px-5 py-4 text-center">G</th><th class="px-5 py-4 text-center">V</th><th class="px-5 py-4 text-right">APR.</th></tr>
+                                <tr>
+                                    <th class="px-5 py-4 text-center">#</th>
+                                    <th class="px-5 py-4">ATLETA</th>
+                                    <th class="px-5 py-4 text-center">GOLS</th>
+                                    <th class="px-5 py-4 text-center">ASSIST</th>
+                                    <th class="px-5 py-4 text-center text-yellow-500">AM</th>
+                                    <th class="px-5 py-4 text-center text-red-500">VM</th>
+                                    <th class="px-5 py-4 text-center">VIT</th>
+                                    <th class="px-5 py-4 text-right">APR.</th>
+                                </tr>
                             </thead>
                             <tbody class="divide-y divide-zinc-800">
                                 ${sorted.map((p, i) => `
-                                    <tr class="hover:bg-zinc-800/50 transition-colors">
-                                        <td class="px-5 py-4 text-center font-black ${i===0?'text-yellow-500':i===1?'text-slate-400':i===2?'text-amber-700':'text-zinc-600'}">${i+1}</td>
+                                    <tr class="hover:bg-zinc-800/50">
+                                        <td class="px-5 py-4 text-center font-black ${i===0?'text-yellow-500':i===1?'text-slate-400':'text-zinc-600'}">${i+1}</td>
                                         <td class="px-5 py-4 font-black uppercase italic text-xs truncate max-w-[120px]">${p.name}</td>
                                         <td class="px-5 py-4 text-center font-black text-green-500">${p.goals}</td>
+                                        <td class="px-5 py-4 text-center font-black text-blue-500">${p.assists}</td>
+                                        <td class="px-5 py-4 text-center font-black text-yellow-500">${p.yellowCards}</td>
+                                        <td class="px-5 py-4 text-center font-black text-red-500">${p.redCards}</td>
                                         <td class="px-5 py-4 text-center font-black text-amber-500">${p.wins}</td>
                                         <td class="px-5 py-4 text-right font-black italic text-xs">${p.matches > 0 ? Math.round((p.wins/p.matches)*100) : 0}%</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
-                        ${state.players.length === 0 ? '<p class="text-center text-zinc-600 py-10 text-xs">Sem dados de estatística.</p>' : ''}
                     </div>
                 </div>
             `;
@@ -363,24 +392,26 @@
 
         function renderModals() {
             let html = '';
-            if (state.showGoalModal) {
-                const team = state.showGoalModal === 'A' ? state.teamA : state.teamB;
+            if (state.showEventModal) {
+                const team = state.showEventModal === 'A' ? state.teamA : state.teamB;
+                const titles = { goal: 'QUEM MARCOU?', yellow: 'CARTÃO AMARELO', red: 'CARTÃO VERMELHO' };
+                
                 html += `
                     <div class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
                         <div class="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-fade-in">
-                            <div class="bg-zinc-900 p-6 text-white text-center font-black-italic uppercase tracking-widest">QUEM MARCOU?</div>
+                            <div class="bg-zinc-900 p-6 text-white text-center font-black-italic uppercase tracking-widest">${titles[state.eventType]}</div>
                             <div class="p-6 space-y-3">
-                                ${!state.selectedScorer ? 
-                                    team.map(p => `<button onclick="state.selectedScorer=${p.id}; render();" class="w-full p-4 bg-gray-50 rounded-2xl font-black uppercase italic text-left flex justify-between group hover:bg-green-50 transition-colors">${p.name} <i data-lucide="target" class="text-green-500"></i></button>`).join('') :
-                                    `
-                                    <p class="text-[10px] font-black text-gray-400 uppercase text-center mb-2">Assistência de:</p>
-                                    <button onclick="registerGoal(null)" class="w-full p-4 bg-gray-100 rounded-2xl font-black uppercase italic text-gray-500">Sem Assistência</button>
-                                    ${team.filter(p => p.id !== state.selectedScorer).map(p => `
-                                        <button onclick="registerGoal(${p.id})" class="w-full p-4 bg-blue-50 text-blue-900 rounded-2xl font-black uppercase italic flex justify-between border border-blue-100">${p.name} <i data-lucide="hand-helping"></i></button>
-                                    `).join('')}
-                                    `
+                                ${!state.selectedPlayerId ? 
+                                    team.map(p => `<button onclick="handleEventSelection(${p.id})" class="w-full p-4 bg-gray-50 rounded-2xl font-black uppercase italic text-left flex justify-between group hover:bg-green-50 transition-colors">${p.name} <i data-lucide="user"></i></button>`).join('') :
+                                    (state.eventType === 'goal' ? `
+                                        <p class="text-[10px] font-black text-gray-400 uppercase text-center mb-2">Assistência de:</p>
+                                        <button onclick="registerEvent(null)" class="w-full p-4 bg-gray-100 rounded-2xl font-black uppercase italic text-gray-500">Sem Assistência</button>
+                                        ${team.filter(p => p.id !== state.selectedPlayerId).map(p => `
+                                            <button onclick="registerEvent(${p.id})" class="w-full p-4 bg-blue-50 text-blue-900 rounded-2xl font-black uppercase italic flex justify-between border border-blue-100">${p.name} <i data-lucide="hand-helping"></i></button>
+                                        `).join('')}
+                                    ` : '')
                                 }
-                                <button onclick="state.showGoalModal=null; state.selectedScorer=null; render();" class="w-full text-gray-400 font-black py-2 uppercase text-[10px] tracking-widest mt-4">Fechar</button>
+                                <button onclick="resetEventState()" class="w-full text-gray-400 font-black py-2 uppercase text-[10px] tracking-widest mt-4">Cancelar</button>
                             </div>
                         </div>
                     </div>
@@ -397,12 +428,11 @@
                                 <button onclick="state.subModal=null; render();" class="p-2 bg-gray-100 rounded-full"><i data-lucide="x" size="18"></i></button>
                             </div>
                             <div class="mb-8 text-center bg-zinc-900 p-6 rounded-3xl">
-                                <p class="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Saindo do Campo</p>
+                                <p class="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Saindo</p>
                                 <p class="text-2xl font-black-italic uppercase text-white">${player.name}</p>
                             </div>
                             <div class="space-y-3">
-                                <button onclick="executeSub()" class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-amber-200 active:scale-95 transition-all">Trocar pelo Próximo da Fila</button>
-                                <button onclick="state.subModal=null; render();" class="w-full bg-gray-50 text-gray-400 font-bold py-3 rounded-2xl text-xs uppercase">Manter em Campo</button>
+                                <button onclick="executeSub()" class="w-full bg-amber-500 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-lg">Puxar da Fila</button>
                             </div>
                         </div>
                     </div>
@@ -412,6 +442,22 @@
         }
 
         // --- Ações de Apoio ---
+
+        function handleEventSelection(playerId) {
+            state.selectedPlayerId = playerId;
+            if (state.eventType !== 'goal') {
+                registerEvent(null);
+            } else {
+                render();
+            }
+        }
+
+        function resetEventState() {
+            state.showEventModal = null;
+            state.eventType = null;
+            state.selectedPlayerId = null;
+            render();
+        }
 
         function toggleTimer(forced) {
             state.isActive = forced !== undefined ? forced : !state.isActive;
@@ -430,21 +476,26 @@
             render();
         }
 
-        function registerGoal(assistId) {
-            const scorerId = state.selectedScorer;
-            const team = state.showGoalModal;
-            if (team === 'A') state.scoreA++; else state.scoreB++;
-            
+        function registerEvent(assistId) {
+            const playerId = state.selectedPlayerId;
+            const type = state.eventType;
+            const team = state.showEventModal;
+
             state.players = state.players.map(p => {
-                if (p.id === scorerId) p.goals++;
-                if (assistId && p.id === assistId) p.assists++;
+                if (p.id === playerId) {
+                    if (type === 'goal') {
+                        p.goals++;
+                        if (team === 'A') state.scoreA++; else state.scoreB++;
+                    }
+                    if (type === 'yellow') p.yellowCards++;
+                    if (type === 'red') p.redCards++;
+                }
+                if (type === 'goal' && assistId && p.id === assistId) p.assists++;
                 return p;
             });
 
-            state.showGoalModal = null;
-            state.selectedScorer = null;
+            resetEventState();
             savePlayersToStorage();
-            render();
         }
 
         function openSubModal(teamName, playerId) {
@@ -457,32 +508,28 @@
         function executeSub() {
             const { team, player, teamName } = state.subModal;
             if (state.waitingList.length === 0) return alert("Ninguém na fila de espera!");
-            
             const next = state.waitingList.shift();
             state.waitingList.push(player);
-            
             const newTeam = team.map(p => p.id === player.id ? next : p);
             if (teamName === 'A') state.teamA = newTeam; else state.teamB = newTeam;
-            
             state.subModal = null;
             render();
         }
 
         function exportCSV() {
-            const headers = ["Atleta", "Gols", "Assistencias", "Vitorias", "Partidas", "Aproveitamento"];
+            const headers = ["Atleta", "Gols", "Assistencias", "Amarelos", "Vermelhos", "Vitorias", "Partidas", "Aproveitamento"];
             const rows = state.players.map(p => [
-                p.name, p.goals, p.assists, p.wins, p.matches,
+                p.name, p.goals, p.assists, p.yellowCards, p.redCards, p.wins, p.matches,
                 p.matches > 0 ? `${Math.round((p.wins / p.matches) * 100)}%` : "0%"
             ]);
             const content = [headers, ...rows].map(e => e.join(",")).join("\n");
             const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `asmeto_ranking_${new Date().toISOString().split('T')[0]}.csv`;
+            link.download = `asmeto_estatisticas_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
         }
 
-        // Init
         render();
     </script>
 </body>
