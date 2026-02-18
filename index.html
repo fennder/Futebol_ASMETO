@@ -14,6 +14,8 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .card-red-pulse { animation: pulseRed 2s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -23,16 +25,52 @@
 
     <script>
         // --- Estado Global ---
-        const STORAGE_KEY = 'asmeto_players_v4';
+        const STORAGE_KEY_PLAYERS = 'asmeto_players_v6';
+        const STORAGE_KEY_SESSIONS = 'asmeto_sessions_v6';
 
         function loadInitialState() {
-            const savedPlayers = localStorage.getItem(STORAGE_KEY);
+            const savedPlayers = localStorage.getItem(STORAGE_KEY_PLAYERS);
+            const savedSessions = localStorage.getItem(STORAGE_KEY_SESSIONS);
+            
             return {
-                view: 'setup',
+                view: 'sessions_list', 
                 players: savedPlayers ? JSON.parse(savedPlayers) : [],
-                confirmedIds: [], 
+                sessions: savedSessions ? JSON.parse(savedSessions) : [],
+                activeSessionId: null,
+                newSessionName: '',
                 newPlayerName: '',
-                playersPerTeam: 7, // Alterado para 7 conforme solicitado
+                playersPerTeam: 7,
+                punishmentTime: 90, 
+                showEventModal: null, 
+                eventType: null, 
+                selectedPlayerId: null,
+                subModal: null,
+                showPresenceModal: false 
+            };
+        }
+
+        let state = loadInitialState();
+        let timerInterval = null;
+        let penaltyInterval = null;
+
+        // --- Persistência ---
+        function saveToStorage() {
+            localStorage.setItem(STORAGE_KEY_PLAYERS, JSON.stringify(state.players));
+            localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(state.sessions));
+        }
+
+        function getActiveSession() {
+            return state.sessions.find(s => s.id === state.activeSessionId);
+        }
+
+        // --- Ações de Sessão ---
+        function createSession() {
+            const name = state.newSessionName.trim() || `Pelada ${new Date().toLocaleDateString()}`;
+            const session = {
+                id: Date.now(),
+                name: name,
+                date: new Date().toISOString(),
+                confirmedIds: [],
                 teamA: [],
                 teamB: [],
                 waitingList: [],
@@ -40,304 +78,381 @@
                 scoreB: 0,
                 timer: 600,
                 isActive: false,
-                matchCount: 0,
-                showEventModal: null,
-                eventType: null,
-                selectedPlayerId: null,
-                subModal: null
+                matchEvents: [],
+                penalizedPlayers: [] 
             };
+            state.sessions.unshift(session);
+            state.newSessionName = '';
+            saveToStorage();
+            render();
         }
 
-        let state = loadInitialState();
-        let timerInterval = null;
-
-        // --- Funções de Persistência ---
-        function savePlayersToStorage() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.players));
+        function openSession(id) {
+            state.activeSessionId = id;
+            state.view = 'setup';
+            render();
         }
 
+        function deleteSession(id) {
+            if(!confirm("Excluir esta pelada?")) return;
+            state.sessions = state.sessions.filter(s => s.id !== id);
+            if(state.activeSessionId === id) state.activeSessionId = null;
+            saveToStorage();
+            render();
+        }
+
+        // --- Lógica de Presença ---
+        function addAndConfirmPlayer() {
+            const name = state.newPlayerName.trim();
+            if (!name) return;
+            let player = state.players.find(p => p.name.toLowerCase() === name.toLowerCase());
+            if (!player) {
+                player = { id: Date.now(), name: name, goals: 0, assists: 0, yellowCards: 0, redCards: 0, wins: 0, matches: 0 };
+                state.players.push(player);
+            }
+            const session = getActiveSession();
+            if (!session.confirmedIds.includes(player.id)) {
+                session.confirmedIds.push(player.id);
+                if (session.teamA.length > 0 || session.teamB.length > 0) {
+                    if (!session.waitingList.find(p => p.id === player.id)) {
+                        session.waitingList.push(player);
+                    }
+                }
+            }
+            state.newPlayerName = '';
+            saveToStorage();
+            render();
+        }
+
+        function togglePresence(playerId) {
+            const session = getActiveSession();
+            const player = state.players.find(p => p.id === playerId);
+
+            if (session.confirmedIds.includes(playerId)) {
+                session.confirmedIds = session.confirmedIds.filter(id => id !== playerId);
+                session.teamA = session.teamA.filter(p => p.id !== playerId);
+                session.teamB = session.teamB.filter(p => p.id !== playerId);
+                session.waitingList = session.waitingList.filter(p => p.id !== playerId);
+                session.penalizedPlayers = session.penalizedPlayers.filter(p => p.playerId !== playerId);
+            } else {
+                session.confirmedIds.push(playerId);
+                if (state.view === 'match' || session.teamA.length > 0) {
+                     if (!session.waitingList.find(p => p.id === playerId)) {
+                        session.waitingList.push(player);
+                    }
+                }
+            }
+            saveToStorage();
+            render();
+        }
+
+        function startMatch() {
+            const session = getActiveSession();
+            const activePlayers = state.players.filter(p => session.confirmedIds.includes(p.id));
+            const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
+            session.teamA = shuffled.slice(0, state.playersPerTeam);
+            session.teamB = shuffled.slice(state.playersPerTeam, state.playersPerTeam * 2);
+            session.waitingList = shuffled.slice(state.playersPerTeam * 2);
+            session.matchEvents = [];
+            session.penalizedPlayers = [];
+            session.scoreA = 0;
+            session.scoreB = 0;
+            session.timer = 600;
+            state.view = 'match';
+            startPenaltyTimer();
+            saveToStorage();
+            render();
+        }
+
+        // --- Temporizadores ---
+        function toggleTimer() {
+            const session = getActiveSession();
+            session.isActive = !session.isActive;
+            if (session.isActive) {
+                timerInterval = setInterval(() => {
+                    if (session.timer > 0) { session.timer--; render(); } 
+                    else { clearInterval(timerInterval); session.isActive = false; render(); }
+                }, 1000);
+            } else { clearInterval(timerInterval); }
+            render();
+        }
+
+        function startPenaltyTimer() {
+            if (penaltyInterval) clearInterval(penaltyInterval);
+            penaltyInterval = setInterval(() => {
+                const session = getActiveSession();
+                if (!session || !session.penalizedPlayers.length) return;
+                
+                let changed = false;
+                session.penalizedPlayers.forEach(p => {
+                    if (p.timeLeft > 0) {
+                        p.timeLeft--;
+                        changed = true;
+                    }
+                });
+
+                const finished = session.penalizedPlayers.filter(p => p.timeLeft <= 0);
+                if (finished.length > 0) {
+                    finished.forEach(penalized => {
+                        const fullPlayer = state.players.find(p => p.id === penalized.playerId);
+                        if (penalized.originalTeam === 'A' && session.teamA.length < state.playersPerTeam) {
+                            session.teamA.push(fullPlayer);
+                        } else if (penalized.originalTeam === 'B' && session.teamB.length < state.playersPerTeam) {
+                            session.teamB.push(fullPlayer);
+                        } else {
+                            session.waitingList.push(fullPlayer);
+                        }
+                        session.penalizedPlayers = session.penalizedPlayers.filter(p => p.playerId !== penalized.playerId);
+                    });
+                    changed = true;
+                }
+                
+                if (changed) {
+                    saveToStorage();
+                    render();
+                }
+            }, 1000);
+        }
+
+        // --- Renderização ---
         function render() {
             const app = document.getElementById('app');
             app.innerHTML = `
                 <nav class="bg-white border-b border-gray-100 sticky top-0 z-40 px-6 py-5 shadow-sm">
                     <div class="max-w-md mx-auto flex justify-between items-center">
-                        <div class="flex flex-col">
+                        <div class="flex flex-col cursor-pointer" onclick="state.view = 'sessions_list'; render();">
                             <h1 class="text-2xl font-black-italic tracking-tighter text-green-700 leading-none">ASMETO</h1>
-                            <span class="text-[8px] font-black uppercase tracking-[0.4em] text-green-500/60 mt-1">TEMPORADA 2026</span>
+                            <span class="text-[8px] font-black uppercase tracking-[0.4em] text-green-500/60 mt-1">SISTEMA DE GESTÃO</span>
                         </div>
+                        ${state.activeSessionId ? `
                         <div class="bg-gray-100 p-1.5 rounded-2xl flex gap-1">
-                            <button onclick="changeView('setup')" class="p-2.5 rounded-xl transition-all ${state.view === 'setup' ? 'bg-white shadow-sm text-green-700' : 'text-gray-400'}"><i data-lucide="settings"></i></button>
-                            <button onclick="changeView('match')" class="p-2.5 rounded-xl transition-all ${state.view === 'match' ? 'bg-white shadow-sm text-green-700' : 'text-gray-400'}"><i data-lucide="timer"></i></button>
-                            <button onclick="changeView('ranking')" class="p-2.5 rounded-xl transition-all ${state.view === 'ranking' ? 'bg-white shadow-sm text-green-700' : 'text-gray-400'}"><i data-lucide="trophy"></i></button>
+                            <button onclick="state.view = 'setup'; render();" class="p-2.5 rounded-xl transition-all ${state.view === 'setup' ? 'bg-white shadow-sm text-green-700' : 'text-gray-400'}"><i data-lucide="users"></i></button>
+                            <button onclick="state.view = 'match'; render();" class="p-2.5 rounded-xl transition-all ${state.view === 'match' ? 'bg-white shadow-sm text-green-700' : 'text-gray-400'}"><i data-lucide="timer"></i></button>
+                            <button onclick="state.view = 'ranking'; render();" class="p-2.5 rounded-xl transition-all ${state.view === 'ranking' ? 'bg-white shadow-sm text-green-700' : 'text-gray-400'}"><i data-lucide="trophy"></i></button>
                         </div>
+                        ` : ''}
                     </div>
                 </nav>
                 <main class="max-w-md mx-auto p-4 animate-fade-in">
-                    ${state.view === 'setup' ? renderSetup() : state.view === 'match' ? renderMatch() : renderRanking()}
+                    ${renderView()}
                 </main>
                 ${renderModals()}
             `;
             lucide.createIcons();
         }
 
-        function changeView(view) {
-            state.view = view;
-            render();
-        }
-
-        // --- Lógica de Jogadores ---
-        function addPlayer(fromMatch = false) {
-            const name = state.newPlayerName.trim();
-            if (!name) return;
-            const player = {
-                id: Date.now(),
-                name: name,
-                goals: 0, assists: 0, yellowCards: 0, redCards: 0, wins: 0, matches: 0
-            };
-            state.players.push(player);
-            state.newPlayerName = '';
-            
-            if (fromMatch) {
-                state.waitingList.push(player);
-                // Se algum time estiver incompleto, completa automaticamente
-                fillIncompleteTeams();
-            } else {
-                state.confirmedIds.push(player.id);
-            }
-            
-            savePlayersToStorage();
-            render();
-        }
-
-        function fillIncompleteTeams() {
-            while (state.waitingList.length > 0) {
-                if (state.teamA.length < state.playersPerTeam) {
-                    state.teamA.push(state.waitingList.shift());
-                } else if (state.teamB.length < state.playersPerTeam) {
-                    state.teamB.push(state.waitingList.shift());
-                } else {
-                    break;
-                }
+        function renderView() {
+            if (state.view === 'sessions_list') return renderSessionsList();
+            if (!state.activeSessionId) return renderSessionsList();
+            switch(state.view) {
+                case 'setup': return renderSetup();
+                case 'match': return renderMatch();
+                case 'ranking': return renderRanking();
+                default: return renderSessionsList();
             }
         }
 
-        function removeFromMatch(teamLabel, playerId) {
-            if (!confirm("Remover este jogador da partida atual (ausência)?")) return;
-            
-            if (teamLabel === 'A') {
-                state.teamA = state.teamA.filter(p => p.id !== playerId);
-            } else if (teamLabel === 'B') {
-                state.teamB = state.teamB.filter(p => p.id !== playerId);
-            } else {
-                state.waitingList = state.waitingList.filter(p => p.id !== playerId);
-            }
-            
-            // Tenta repor com alguém da espera
-            fillIncompleteTeams();
-            render();
-        }
-
-        function startMatch() {
-            const activePlayers = state.players.filter(p => state.confirmedIds.includes(p.id));
-            const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
-            state.teamA = shuffled.slice(0, state.playersPerTeam);
-            state.teamB = shuffled.slice(state.playersPerTeam, state.playersPerTeam * 2);
-            state.waitingList = shuffled.slice(state.playersPerTeam * 2);
-            state.view = 'match';
-            render();
-        }
-
-        function finishMatch(winner) {
-            const winners = winner === 'A' ? state.teamA : state.teamB;
-            const losers = winner === 'A' ? state.teamB : state.teamA;
-
-            state.players.forEach(p => {
-                if (winners.some(w => w.id === p.id)) { p.wins++; p.matches++; }
-                else if (losers.some(l => l.id === p.id)) { p.matches++; }
-            });
-
-            state.matchCount++;
-            let nextTeam = [];
-            let remainingLosers = [...losers];
-
-            // Pega da fila primeiro
-            const needed = state.playersPerTeam;
-            nextTeam = state.waitingList.slice(0, needed);
-            state.waitingList = state.waitingList.slice(needed);
-
-            // Se faltar gente, completa com quem perdeu (quem saiu)
-            if (nextTeam.length < needed) {
-                const stillNeeded = needed - nextTeam.length;
-                const takenFromLosers = remainingLosers.slice(0, stillNeeded);
-                remainingLosers = remainingLosers.slice(stillNeeded);
-                nextTeam = [...nextTeam, ...takenFromLosers];
-            }
-
-            // O resto dos perdedores vai para o fim da fila
-            state.waitingList = [...state.waitingList, ...remainingLosers];
-
-            if (winner === 'A') state.teamB = nextTeam;
-            else state.teamA = nextTeam;
-
-            state.scoreA = 0; state.scoreB = 0;
-            state.timer = 600;
-            toggleTimer(false);
-            savePlayersToStorage();
-            render();
-        }
-
-        // --- Renderização de Telas ---
-
-        function renderSetup() {
+        function renderSessionsList() {
             return `
                 <div class="space-y-6">
-                    <div class="bg-gradient-to-br from-green-600 to-green-900 p-6 rounded-[32px] text-white shadow-xl flex justify-between items-center">
-                        <div>
-                            <h2 class="text-2xl font-black-italic">CONFIGURAÇÃO</h2>
-                            <p class="text-green-100 text-[10px] uppercase font-bold tracking-widest">Ajuste os times e presença</p>
+                    <div class="bg-zinc-900 p-8 rounded-[32px] text-white shadow-xl">
+                        <h2 class="text-3xl font-black-italic italic uppercase leading-none">Minhas Peladas</h2>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-3 italic">Nova Pelada</p>
+                        <div class="flex gap-2">
+                            <input type="text" placeholder="Ex: Pelada de Quarta..." 
+                                oninput="state.newSessionName = this.value" value="${state.newSessionName}"
+                                class="flex-1 p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium focus:ring-2 focus:ring-green-500 transition-all">
+                            <button onclick="createSession()" class="bg-green-600 text-white px-6 rounded-2xl shadow-lg active:scale-95"><i data-lucide="plus"></i></button>
                         </div>
-                        <div class="text-right">
-                             <span class="text-3xl font-black italic">${state.playersPerTeam}</span>
-                             <p class="text-[8px] font-bold uppercase">Jogadores/Time</p>
+                    </div>
+                    <div class="space-y-3">
+                        ${state.sessions.map(s => `
+                            <div class="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm flex justify-between items-center">
+                                <div class="cursor-pointer flex-1" onclick="openSession(${s.id})">
+                                    <h3 class="font-black text-zinc-800 italic uppercase">${s.name}</h3>
+                                    <p class="text-[9px] text-gray-400 font-bold uppercase">${new Date(s.date).toLocaleDateString()} • ${s.confirmedIds.length} Atletas</p>
+                                </div>
+                                <button onclick="deleteSession(${s.id})" class="text-gray-300 hover:text-red-500 p-2"><i data-lucide="trash-2" size="18"></i></button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSetup() {
+            const session = getActiveSession();
+            return `
+                <div class="space-y-6">
+                    <div class="flex items-center gap-4">
+                        <button onclick="state.view = 'sessions_list'; render();" class="p-3 bg-white rounded-2xl border border-gray-100 text-gray-400"><i data-lucide="chevron-left"></i></button>
+                        <h2 class="text-xl font-black-italic italic uppercase truncate">${session.name}</h2>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-3 italic">Configurações de Jogo</p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[9px] font-bold text-gray-400 uppercase">Atletas p/ Time</label>
+                                <div class="flex items-center gap-3 mt-1">
+                                    <button onclick="state.playersPerTeam = Math.max(2, state.playersPerTeam-1); render()" class="w-8 h-8 bg-gray-100 rounded-lg text-xs font-bold">-</button>
+                                    <span class="font-black">${state.playersPerTeam}</span>
+                                    <button onclick="state.playersPerTeam = Math.min(11, state.playersPerTeam+1); render()" class="w-8 h-8 bg-gray-100 rounded-lg text-xs font-bold">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-gray-400 uppercase">Punição VM (seg)</label>
+                                <div class="flex items-center gap-3 mt-1">
+                                    <button onclick="state.punishmentTime = Math.max(10, state.punishmentTime-10); render()" class="w-8 h-8 bg-gray-100 rounded-lg text-xs font-bold">-</button>
+                                    <span class="font-black">${state.punishmentTime}s</span>
+                                    <button onclick="state.punishmentTime = Math.min(600, state.punishmentTime+10); render()" class="w-8 h-8 bg-gray-100 rounded-lg text-xs font-bold">+</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                        <div class="flex gap-2">
-                            <input type="text" placeholder="Nome do atleta..." 
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-3 italic">Lista de Presença</p>
+                        <div class="flex gap-2 mb-4">
+                            <input type="text" placeholder="Nome do Atleta..." 
                                 oninput="state.newPlayerName = this.value" value="${state.newPlayerName}"
-                                class="flex-1 p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium focus:ring-2 focus:ring-green-500 transition-all">
-                            <button onclick="addPlayer()" class="bg-green-600 text-white px-5 rounded-2xl shadow-lg active:scale-95"><i data-lucide="user-plus"></i></button>
+                                class="flex-1 p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium">
+                            <button onclick="addAndConfirmPlayer()" class="bg-zinc-900 text-white px-6 rounded-2xl font-black uppercase text-xs italic">Ok</button>
                         </div>
-                    </div>
-
-                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div class="p-5 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                            <h3 class="font-black text-xs uppercase text-gray-400">Marcar Presença (${state.confirmedIds.length})</h3>
-                            <div class="flex gap-2">
-                                <button onclick="state.playersPerTeam = Math.max(2, state.playersPerTeam-1); render()" class="p-1 bg-gray-200 rounded">-</button>
-                                <button onclick="state.playersPerTeam = Math.min(11, state.playersPerTeam+1); render()" class="p-1 bg-gray-200 rounded">+</button>
-                            </div>
-                        </div>
-                        <div class="max-h-80 overflow-y-auto custom-scrollbar p-2">
+                        <div class="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
                             ${state.players.map(p => {
-                                const isConfirmed = state.confirmedIds.includes(p.id);
+                                const isConfirmed = session.confirmedIds.includes(p.id);
                                 return `
-                                    <div class="flex items-center gap-3 p-2">
-                                        <button onclick="togglePresence(${p.id})" class="flex-1 flex items-center gap-3 text-left">
-                                            <div class="w-5 h-5 rounded border-2 flex items-center justify-center ${isConfirmed ? 'bg-green-600 border-green-600 text-white' : 'border-gray-200'}">
-                                                ${isConfirmed ? '<i data-lucide="check" size="12"></i>' : ''}
-                                            </div>
-                                            <span class="font-bold uppercase italic text-xs ${isConfirmed ? 'text-green-900' : 'text-gray-400'}">${p.name}</span>
-                                        </button>
-                                        <button onclick="removePlayerFromDB(${p.id})" class="text-gray-300 hover:text-red-500 px-2"><i data-lucide="trash-2" size="14"></i></button>
-                                    </div>
+                                    <button onclick="togglePresence(${p.id})" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50">
+                                        <div class="w-5 h-5 rounded border-2 flex items-center justify-center ${isConfirmed ? 'bg-green-600 border-green-600 text-white' : 'border-gray-200'}">
+                                            ${isConfirmed ? '<i data-lucide="check" size="12"></i>' : ''}
+                                        </div>
+                                        <span class="font-bold uppercase italic text-xs ${isConfirmed ? 'text-zinc-800' : 'text-gray-300'}">${p.name}</span>
+                                    </button>
                                 `;
                             }).join('')}
                         </div>
                     </div>
 
-                    <button onclick="startMatch()" class="w-full bg-zinc-900 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all">
-                        Sortear Times (${state.playersPerTeam} x ${state.playersPerTeam})
+                    <button onclick="startMatch()" class="w-full bg-green-600 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all">
+                        Iniciar Partida
                     </button>
                 </div>
             `;
         }
 
         function renderMatch() {
+            const session = getActiveSession();
             const formatTime = (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+            
             return `
                 <div class="space-y-6">
-                    <!-- Painel de Placar -->
-                    <div class="bg-zinc-900 text-white p-6 rounded-[32px] shadow-2xl relative">
-                        <div class="flex justify-between items-center mb-4">
+                    <!-- Placar e Timer -->
+                    <div class="bg-zinc-900 text-white p-6 rounded-[32px] shadow-2xl relative overflow-hidden">
+                        <div class="flex justify-between items-center mb-6 relative z-10">
                              <div class="text-center flex-1">
-                                <p class="text-[10px] font-black text-green-500 uppercase">TIME A</p>
-                                <p class="text-6xl font-black-italic">${state.scoreA}</p>
-                                <div class="flex justify-center gap-1 mt-2">
-                                    <button onclick="openEvent('A', 'goal')" class="bg-green-600 p-2 rounded-lg"><i data-lucide="plus" size="16"></i></button>
-                                    <button onclick="openEvent('A', 'yellow')" class="bg-yellow-500 p-2 rounded-lg text-black"><i data-lucide="copy" size="16"></i></button>
-                                    <button onclick="openEvent('A', 'red')" class="bg-red-600 p-2 rounded-lg"><i data-lucide="copy" size="16"></i></button>
-                                </div>
+                                <p class="text-[10px] font-black text-green-500 uppercase italic">Time A</p>
+                                <p class="text-6xl font-black-italic leading-none">${session.scoreA}</p>
                              </div>
                              <div class="text-center px-4">
-                                <p class="text-2xl font-mono font-bold text-green-400">${formatTime(state.timer)}</p>
+                                <p class="text-2xl font-mono font-bold text-green-400">${formatTime(session.timer)}</p>
                                 <button onclick="toggleTimer()" class="mt-2 p-2 bg-zinc-800 rounded-full inline-block">
-                                    <i data-lucide="${state.isActive ? 'pause' : 'play'}" size="20"></i>
+                                    <i data-lucide="${session.isActive ? 'pause' : 'play'}" size="20"></i>
                                 </button>
                              </div>
                              <div class="text-center flex-1">
-                                <p class="text-[10px] font-black text-blue-500 uppercase">TIME B</p>
-                                <p class="text-6xl font-black-italic">${state.scoreB}</p>
-                                <div class="flex justify-center gap-1 mt-2">
-                                    <button onclick="openEvent('B', 'goal')" class="bg-blue-600 p-2 rounded-lg"><i data-lucide="plus" size="16"></i></button>
-                                    <button onclick="openEvent('B', 'yellow')" class="bg-yellow-500 p-2 rounded-lg text-black"><i data-lucide="copy" size="16"></i></button>
-                                    <button onclick="openEvent('B', 'red')" class="bg-red-600 p-2 rounded-lg"><i data-lucide="copy" size="16"></i></button>
-                                </div>
+                                <p class="text-[10px] font-black text-blue-500 uppercase italic">Time B</p>
+                                <p class="text-6xl font-black-italic leading-none">${session.scoreB}</p>
                              </div>
                         </div>
-                        <div class="flex gap-2">
-                            <button onclick="finishMatch('A')" class="flex-1 bg-green-900/50 text-green-400 border border-green-700/50 py-2 rounded-xl text-[10px] font-black uppercase">Fim de Jogo: Vitória A</button>
-                            <button onclick="finishMatch('B')" class="flex-1 bg-blue-900/50 text-blue-400 border border-blue-700/50 py-2 rounded-xl text-[10px] font-black uppercase">Fim de Jogo: Vitória B</button>
+                        <div class="flex gap-2 relative z-10">
+                            <button onclick="openEvent('A', 'goal')" class="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-[10px] font-black uppercase italic">GOL A</button>
+                            <button onclick="openEvent('B', 'goal')" class="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-[10px] font-black uppercase italic">GOL B</button>
+                        </div>
+                        <div class="flex gap-2 mt-2 relative z-10">
+                            <button onclick="openEvent('A', 'card')" class="flex-1 bg-zinc-800 text-zinc-400 py-2 rounded-xl text-[8px] font-black uppercase italic">Cartão A</button>
+                            <button onclick="openEvent('B', 'card')" class="flex-1 bg-zinc-800 text-zinc-400 py-2 rounded-xl text-[8px] font-black uppercase italic">Cartão B</button>
                         </div>
                     </div>
 
-                    <!-- Gestão de Times -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        ${renderLiveTeamCard('A', state.teamA)}
-                        ${renderLiveTeamCard('B', state.teamB)}
-                    </div>
+                    <button onclick="state.showPresenceModal = true; render();" class="w-full flex items-center justify-center gap-2 py-4 bg-white border border-dashed border-gray-300 rounded-2xl text-gray-500 font-black uppercase italic text-xs hover:bg-gray-50 transition-all">
+                        <i data-lucide="users" size="16"></i> Gerenciar Atletas (Atrasos/Saídas)
+                    </button>
 
-                    <!-- Adicionar Jogador "Na Hora" -->
-                    <div class="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
-                        <p class="text-[10px] font-black text-gray-400 uppercase mb-2 italic">Chegou alguém agora?</p>
-                        <div class="flex gap-2">
-                            <input type="text" placeholder="Nome do jogador atrasado..." 
-                                oninput="state.newPlayerName = this.value" value="${state.newPlayerName}"
-                                class="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm">
-                            <button onclick="addPlayer(true)" class="bg-zinc-800 text-white px-4 rounded-xl active:scale-95"><i data-lucide="user-plus" size="18"></i></button>
+                    ${session.penalizedPlayers.length > 0 ? `
+                        <div class="bg-red-50 border border-red-100 p-4 rounded-3xl space-y-2">
+                            <h4 class="text-[10px] font-black text-red-600 uppercase italic flex items-center gap-2">
+                                <i data-lucide="alert-circle" size="14"></i> Suspensão Temporária
+                            </h4>
+                            ${session.penalizedPlayers.map(p => {
+                                const player = state.players.find(pl => pl.id === p.playerId);
+                                return `
+                                    <div class="bg-white p-3 rounded-2xl flex justify-between items-center shadow-sm card-red-pulse">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-3 h-5 bg-red-600 rounded-sm"></div>
+                                            <span class="font-black italic uppercase text-xs">${player ? player.name : 'Jogador'}</span>
+                                            <span class="px-2 py-0.5 bg-gray-100 rounded text-[8px] font-black">Time ${p.originalTeam}</span>
+                                        </div>
+                                        <div class="text-red-600 font-mono font-bold text-sm">${formatTime(p.timeLeft)}</div>
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
+                    ` : ''}
+
+                    <div class="grid grid-cols-1 gap-4">
+                        ${renderLiveTeamCard('A', session.teamA)}
+                        ${renderLiveTeamCard('B', session.teamB)}
                     </div>
 
-                    <!-- Fila de Espera -->
                     <div class="bg-amber-50 p-6 rounded-[32px] border border-amber-100">
-                        <h4 class="font-black text-amber-800 mb-4 text-[10px] uppercase tracking-widest flex items-center gap-2"><i data-lucide="clock" size="14"></i> ESPERA (${state.waitingList.length})</h4>
+                        <h4 class="font-black text-amber-800 mb-4 text-[10px] uppercase tracking-widest flex items-center gap-2"><i data-lucide="clock" size="14"></i> ESPERA (${session.waitingList.length})</h4>
                         <div class="flex flex-wrap gap-2">
-                            ${state.waitingList.map((p) => `
-                                <span class="px-3 py-1.5 bg-white rounded-xl text-[10px] font-black italic uppercase border border-amber-200 text-amber-900 flex items-center gap-2">
-                                    ${p.name}
-                                    <button onclick="removeFromMatch('W', ${p.id})" class="text-red-400"><i data-lucide="x" size="12"></i></button>
-                                </span>
+                            ${session.waitingList.map((p) => `
+                                <div class="flex items-center gap-1 bg-white px-3 py-1.5 rounded-xl border border-amber-200 shadow-sm">
+                                    <span class="text-[10px] font-black italic uppercase text-amber-900">${p.name}</span>
+                                    <button onclick="togglePresence(${p.id})" class="text-red-300 hover:text-red-500"><i data-lucide="x-circle" size="12"></i></button>
+                                </div>
                             `).join('')}
-                            ${state.waitingList.length === 0 ? '<p class="text-amber-600/50 text-[10px] font-bold">Ninguém aguardando.</p>' : ''}
                         </div>
+                    </div>
+
+                    <div class="flex gap-2 pt-4">
+                        <button onclick="finishMatch('A')" class="flex-1 bg-zinc-900 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-widest shadow-lg">Venceu A</button>
+                        <button onclick="finishMatch('B')" class="flex-1 bg-zinc-900 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-widest shadow-lg">Venceu B</button>
                     </div>
                 </div>
             `;
         }
 
         function renderLiveTeamCard(label, team) {
+            const session = getActiveSession();
             const color = label === 'A' ? 'text-green-600' : 'text-blue-600';
-            const bgColor = label === 'A' ? 'bg-green-50/50' : 'bg-blue-50/50';
-            const border = label === 'A' ? 'border-green-100' : 'border-blue-100';
             
             return `
                 <div class="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
                     <div class="flex justify-between items-center mb-3">
-                         <h4 class="font-black text-gray-400 text-[10px] uppercase tracking-tighter">TIME ${label}</h4>
+                         <h4 class="font-black text-gray-400 text-[10px] uppercase italic">TIME ${label}</h4>
                          <span class="text-[10px] font-black ${color}">${team.length}/${state.playersPerTeam}</span>
                     </div>
-                    <div class="space-y-1.5">
-                        ${team.map(p => `
-                            <div class="flex justify-between items-center p-2.5 ${bgColor} border ${border} rounded-xl group">
-                                <span class="font-black text-gray-800 italic uppercase text-[11px] truncate">${p.name}</span>
-                                <div class="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <button onclick="openSubModal('${label}', ${p.id})" class="p-1.5 bg-white rounded-lg text-amber-600"><i data-lucide="refresh-cw" size="12"></i></button>
-                                    <button onclick="removeFromMatch('${label}', ${p.id})" class="p-1.5 bg-white rounded-lg text-red-500"><i data-lucide="user-minus" size="12"></i></button>
+                    <div class="space-y-2">
+                        ${team.map(p => {
+                            const yellowCards = (session.matchEvents || []).filter(e => e.playerId === p.id && e.type === 'yellow').length;
+                            return `
+                                <div class="flex justify-between items-center p-3 bg-gray-50/50 border border-gray-100 rounded-2xl">
+                                    <div class="flex items-center gap-2 truncate">
+                                        <span class="font-black text-gray-800 italic uppercase text-[11px] truncate">${p.name}</span>
+                                        ${yellowCards > 0 ? `<div class="w-2 h-3 bg-yellow-400 rounded-sm shadow-sm"></div>` : ''}
+                                    </div>
+                                    <div class="flex gap-1 shrink-0">
+                                        <button title="Substituição" onclick="openSubModal('${label}', ${p.id})" class="p-1.5 bg-white rounded-lg text-amber-500 shadow-sm hover:bg-amber-50"><i data-lucide="refresh-cw" size="12"></i></button>
+                                        <button title="Retirar da Partida" onclick="togglePresence(${p.id})" class="p-1.5 bg-white rounded-lg text-red-500 shadow-sm hover:bg-red-50"><i data-lucide="user-minus" size="12"></i></button>
+                                    </div>
                                 </div>
-                            </div>
-                        `).join('')}
-                        ${team.length < state.playersPerTeam ? `<div class="p-3 border-2 border-dashed border-gray-100 rounded-xl text-center text-[10px] text-gray-300 font-bold uppercase italic">Vaga em Aberto</div>` : ''}
+                            `;
+                        }).join('')}
                     </div>
                 </div>
             `;
@@ -347,46 +462,134 @@
             const sorted = [...state.players].sort((a,b) => {
                 const aprA = a.matches > 0 ? (a.wins/a.matches) : 0;
                 const aprB = b.matches > 0 ? (b.wins/b.matches) : 0;
-                if(aprB !== aprA) return aprB - aprA;
+                if (aprB !== aprA) return aprB - aprA;
                 return b.goals - a.goals;
             });
-
+            
             return `
-                <div class="space-y-4">
-                    <h2 class="text-xl font-black-italic uppercase flex items-center gap-2"><i data-lucide="award" class="text-yellow-500"></i> ESTATÍSTICAS</h2>
-                    <div class="bg-zinc-900 rounded-[32px] overflow-x-auto shadow-2xl border border-zinc-800">
-                        <table class="w-full text-zinc-300 text-[10px]">
-                            <thead class="bg-zinc-800 text-zinc-500 font-black uppercase tracking-widest">
-                                <tr>
-                                    <th class="px-4 py-4 text-left">Atleta</th>
-                                    <th class="px-2 py-4 text-center">G</th>
-                                    <th class="px-2 py-4 text-center">A</th>
-                                    <th class="px-2 py-4 text-center text-yellow-500 italic">AM</th>
-                                    <th class="px-2 py-4 text-center text-red-500 italic">VM</th>
-                                    <th class="px-2 py-4 text-center">Vit</th>
-                                    <th class="px-4 py-4 text-right">Apr</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-zinc-800">
-                                ${sorted.filter(p => p.matches > 0).map((p) => `
-                                    <tr class="hover:bg-zinc-800/50">
-                                        <td class="px-4 py-4 font-black uppercase italic">${p.name}</td>
-                                        <td class="px-2 py-4 text-center font-black text-green-500">${p.goals}</td>
-                                        <td class="px-2 py-4 text-center font-black text-blue-500">${p.assists}</td>
-                                        <td class="px-2 py-4 text-center font-black text-yellow-500">${p.yellowCards}</td>
-                                        <td class="px-2 py-4 text-center font-black text-red-500">${p.redCards}</td>
-                                        <td class="px-2 py-4 text-center font-black text-amber-500">${p.wins}</td>
-                                        <td class="px-4 py-4 text-right font-black italic text-zinc-500">${p.matches > 0 ? Math.round((p.wins/p.matches)*100) : 0}%</td>
+                <div class="space-y-6">
+                    <div class="bg-zinc-900 p-8 rounded-[32px] text-white shadow-xl relative overflow-hidden">
+                        <h2 class="text-2xl font-black-italic uppercase italic relative z-10">Ranking Geral</h2>
+                        <i data-lucide="trophy" class="absolute right-[-20px] top-[-20px] w-40 h-40 text-white/5 rotate-12"></i>
+                    </div>
+                    <div class="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-100">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-[10px]">
+                                <thead class="bg-gray-50 text-gray-400 font-black uppercase tracking-widest text-left">
+                                    <tr>
+                                        <th class="px-6 py-4 whitespace-nowrap">Atleta</th>
+                                        <th class="px-2 py-4 text-center">G</th>
+                                        <th class="px-2 py-4 text-center">A</th>
+                                        <th class="px-2 py-4 text-center text-yellow-500">CA</th>
+                                        <th class="px-2 py-4 text-center text-red-500">CV</th>
+                                        <th class="px-2 py-4 text-center">Vits</th>
+                                        <th class="px-4 py-4 text-right">Apr.</th>
                                     </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50">
+                                    ${sorted.filter(p => p.matches > 0).map((p) => `
+                                        <tr>
+                                            <td class="px-6 py-4 font-black uppercase italic text-zinc-800 whitespace-nowrap">${p.name}</td>
+                                            <td class="px-2 py-4 font-black text-green-600 text-center">${p.goals || 0}</td>
+                                            <td class="px-2 py-4 font-black text-blue-600 text-center">${p.assists || 0}</td>
+                                            <td class="px-2 py-4 font-black text-yellow-600 text-center">${p.yellowCards || 0}</td>
+                                            <td class="px-2 py-4 font-black text-red-600 text-center">${p.redCards || 0}</td>
+                                            <td class="px-2 py-4 font-black text-zinc-900 text-center">${p.wins || 0}</td>
+                                            <td class="px-4 py-4 text-right font-black italic text-zinc-400">${Math.round(((p.wins || 0)/(p.matches || 1))*100)}%</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             `;
         }
 
-        // --- Modais e Lógica de Eventos ---
+        // --- Registro de Eventos ---
+        function registerCard(playerId, cardType) {
+            const session = getActiveSession();
+            const teamLabel = state.showEventModal;
+            
+            state.players = state.players.map(p => {
+                if (p.id === playerId) {
+                    if (cardType === 'yellow') p.yellowCards = (p.yellowCards || 0) + 1;
+                    else p.redCards = (p.redCards || 0) + 1;
+                }
+                return p;
+            });
+
+            if (!session.matchEvents) session.matchEvents = [];
+            session.matchEvents.push({ playerId, type: cardType });
+
+            const playerEvents = session.matchEvents.filter(e => e.playerId === playerId);
+            const yellows = playerEvents.filter(e => e.type === 'yellow').length;
+            const hasRed = playerEvents.some(e => e.type === 'red');
+
+            if (hasRed || yellows >= 2) {
+                if (teamLabel === 'A') session.teamA = session.teamA.filter(p => p.id !== playerId);
+                else session.teamB = session.teamB.filter(p => p.id !== playerId);
+                
+                session.penalizedPlayers.push({
+                    playerId: playerId,
+                    timeLeft: state.punishmentTime,
+                    originalTeam: teamLabel
+                });
+            }
+
+            state.showEventModal = null;
+            saveToStorage();
+            render();
+        }
+
+        function finishMatch(winner) {
+            const session = getActiveSession();
+            const winners = winner === 'A' ? session.teamA : session.teamB;
+            const losers = winner === 'A' ? session.teamB : session.teamA;
+
+            state.players.forEach(p => {
+                if (winners.some(w => w.id === p.id)) { p.wins = (p.wins || 0) + 1; p.matches = (p.matches || 0) + 1; }
+                else if (losers.some(l => l.id === p.id)) { p.matches = (p.matches || 0) + 1; }
+            });
+
+            const needed = state.playersPerTeam;
+            let nextTeam = session.waitingList.slice(0, needed);
+            session.waitingList = session.waitingList.slice(needed);
+
+            if (nextTeam.length < needed) {
+                const diff = needed - nextTeam.length;
+                nextTeam = [...nextTeam, ...losers.slice(0, diff)];
+                session.waitingList = [...session.waitingList, ...losers.slice(diff)];
+            } else {
+                session.waitingList = [...session.waitingList, ...losers];
+            }
+
+            if (winner === 'A') session.teamB = nextTeam;
+            else session.teamA = nextTeam;
+
+            session.scoreA = 0; session.scoreB = 0;
+            session.timer = 600;
+            session.isActive = false;
+            session.matchEvents = [];
+            session.penalizedPlayers = []; 
+            clearInterval(timerInterval);
+            saveToStorage();
+            render();
+        }
+
+        function registerGoal(assistId) {
+            const session = getActiveSession();
+            const playerId = state.selectedPlayerId;
+            const team = state.showEventModal;
+            state.players = state.players.map(p => {
+                if (p.id === playerId) { p.goals = (p.goals || 0) + 1; if(team === 'A') session.scoreA++; else session.scoreB++; }
+                if (assistId && p.id === assistId) p.assists = (p.assists || 0) + 1;
+                return p;
+            });
+            state.showEventModal = null;
+            saveToStorage();
+            render();
+        }
 
         function openEvent(teamLabel, type) {
             state.showEventModal = teamLabel;
@@ -395,62 +598,75 @@
             render();
         }
 
-        function handleEventSelection(playerId) {
-            state.selectedPlayerId = playerId;
-            if (state.eventType !== 'goal') {
-                registerEvent(null);
-            } else {
-                render();
-            }
-        }
-
-        function registerEvent(assistId) {
-            const playerId = state.selectedPlayerId;
-            const type = state.eventType;
-            const team = state.showEventModal;
-
-            state.players = state.players.map(p => {
-                if (p.id === playerId) {
-                    if (type === 'goal') {
-                        p.goals++;
-                        if (team === 'A') state.scoreA++; else state.scoreB++;
-                    }
-                    if (type === 'yellow') p.yellowCards++;
-                    if (type === 'red') p.redCards++;
-                }
-                if (type === 'goal' && assistId && p.id === assistId) p.assists++;
-                return p;
-            });
-
-            state.showEventModal = null;
-            state.eventType = null;
-            state.selectedPlayerId = null;
-            savePlayersToStorage();
+        function openSubModal(teamName, playerId) {
+            const session = getActiveSession();
+            const team = teamName === 'A' ? session.teamA : session.teamB;
+            const player = team.find(p => p.id === playerId);
+            if(session.waitingList.length === 0) return;
+            state.subModal = { team, player, teamName };
             render();
         }
 
+        function executeSub() {
+            const session = getActiveSession();
+            const { player, teamName } = state.subModal;
+            const next = session.waitingList.shift();
+            session.waitingList.push(player);
+            if (teamName === 'A') session.teamA = session.teamA.map(p => p.id === player.id ? next : p);
+            else session.teamB = session.teamB.map(p => p.id === player.id ? next : p);
+            state.subModal = null;
+            saveToStorage();
+            render();
+        }
+
+        // --- Modais ---
         function renderModals() {
             let html = '';
-            if (state.showEventModal) {
-                const team = state.showEventModal === 'A' ? state.teamA : state.teamB;
-                const title = { goal: 'QUEM MARCOU?', yellow: 'CARTÃO AMARELO', red: 'CARTÃO VERMELHO' }[state.eventType];
-                
+            
+            if (state.showPresenceModal) {
+                const session = getActiveSession();
                 html += `
                     <div class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div class="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl animate-fade-in">
-                            <div class="bg-zinc-900 p-6 text-white text-center font-black uppercase tracking-widest italic">${title}</div>
-                            <div class="p-6 space-y-2">
-                                ${!state.selectedPlayerId ? 
-                                    team.map(p => `<button onclick="handleEventSelection(${p.id})" class="w-full p-4 bg-gray-50 rounded-2xl font-black uppercase italic text-left flex justify-between">${p.name} <i data-lucide="user"></i></button>`).join('') :
-                                    `
-                                    <p class="text-[10px] font-black text-gray-400 uppercase text-center mb-2 tracking-widest">Assistência de:</p>
-                                    <button onclick="registerEvent(null)" class="w-full p-4 bg-gray-100 rounded-2xl font-black uppercase italic text-gray-400">Ninguém</button>
-                                    ${team.filter(p => p.id !== state.selectedPlayerId).map(p => `
-                                        <button onclick="registerEvent(${p.id})" class="w-full p-4 bg-blue-50 text-blue-900 rounded-2xl font-black uppercase italic flex justify-between border border-blue-100">${p.name} <i data-lucide="hand-helping"></i></button>
-                                    `).join('')}
-                                    `
-                                }
-                                <button onclick="state.showEventModal=null; render()" class="w-full text-gray-400 font-black py-4 uppercase text-[10px] tracking-widest mt-4">Cancelar</button>
+                        <div class="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl">
+                            <div class="bg-zinc-900 p-6 text-white text-center font-black uppercase italic tracking-widest text-xs">LISTA DE PRESENÇA</div>
+                            <div class="p-6">
+                                <div class="flex gap-2 mb-4">
+                                    <input type="text" placeholder="Chegou agora?" 
+                                        oninput="state.newPlayerName = this.value" value="${state.newPlayerName}"
+                                        class="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none font-medium text-sm">
+                                    <button onclick="addAndConfirmPlayer()" class="bg-green-600 text-white px-4 rounded-xl font-black uppercase text-[10px] italic">Add</button>
+                                </div>
+                                <div class="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
+                                    ${state.players.map(p => {
+                                        const isConfirmed = session.confirmedIds.includes(p.id);
+                                        return `
+                                            <button onclick="togglePresence(${p.id})" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 border ${isConfirmed ? 'border-green-100 bg-green-50/20' : 'border-transparent'}">
+                                                <div class="w-4 h-4 rounded border-2 flex items-center justify-center ${isConfirmed ? 'bg-green-600 border-green-600 text-white' : 'border-gray-200'}">
+                                                    ${isConfirmed ? '<i data-lucide="check" size="10"></i>' : ''}
+                                                </div>
+                                                <span class="font-bold uppercase italic text-[10px] ${isConfirmed ? 'text-zinc-800' : 'text-gray-300'}">${p.name}</span>
+                                            </button>
+                                        `;
+                                    }).join('')}
+                                </div>
+                                <button onclick="state.showPresenceModal=false; render()" class="w-full bg-zinc-100 text-zinc-500 font-black py-4 rounded-xl uppercase text-[10px] tracking-widest mt-6">Confirmar e Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (state.showEventModal) {
+                const session = getActiveSession();
+                const team = state.showEventModal === 'A' ? session.teamA : session.teamB;
+                let modalTitle = state.eventType === 'goal' ? (!state.selectedPlayerId ? 'AUTOR DO GOL' : 'ASSISTÊNCIA') : (!state.selectedPlayerId ? 'ESCOLHER JOGADOR' : 'TIPO DE CARTÃO');
+                html += `
+                    <div class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                        <div class="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl">
+                            <div class="bg-zinc-900 p-6 text-white text-center font-black uppercase italic tracking-widest text-xs">${modalTitle}</div>
+                            <div class="p-6 space-y-2 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                                ${state.eventType === 'goal' ? renderGoalFlow(team) : renderCardFlow(team)}
+                                <button onclick="state.showEventModal=null; render()" class="w-full text-gray-400 font-black py-4 uppercase text-[10px] tracking-widest mt-4">Fechar</button>
                             </div>
                         </div>
                     </div>
@@ -458,68 +674,51 @@
             }
 
             if (state.subModal) {
-                const { player, teamName } = state.subModal;
                 html += `
                     <div class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl">
-                             <h3 class="text-xl font-black-italic uppercase text-center mb-6">SUBSTITUIR</h3>
-                             <p class="text-center text-xs font-bold text-gray-400 uppercase mb-2">Saindo:</p>
-                             <div class="bg-zinc-900 p-4 rounded-2xl text-white text-center font-black italic mb-8">${player.name}</div>
-                             <div class="space-y-3">
-                                <button onclick="executeSub()" class="w-full bg-amber-500 text-white font-black py-5 rounded-2xl shadow-lg active:scale-95">Confirmar com o Próximo da Fila</button>
-                                <button onclick="state.subModal=null; render()" class="w-full text-gray-400 font-bold py-2 uppercase text-[10px]">Fechar</button>
-                             </div>
+                        <div class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl text-center">
+                             <h3 class="text-xl font-black-italic uppercase italic mb-6">Substituir</h3>
+                             <p class="text-[10px] font-black text-gray-400 uppercase mb-2">Saindo: ${state.subModal.player.name}</p>
+                             <button onclick="executeSub()" class="w-full bg-green-600 text-white font-black py-5 rounded-2xl uppercase italic text-xs">Confirmar Troca</button>
+                             <button onclick="state.subModal=null; render()" class="w-full text-gray-400 font-bold py-2 uppercase text-[10px] mt-2">Voltar</button>
                         </div>
                     </div>
                 `;
             }
+
             return html;
         }
 
-        // --- Helpers ---
-        function togglePresence(id) {
-            state.confirmedIds = state.confirmedIds.includes(id) ? state.confirmedIds.filter(c => c !== id) : [...state.confirmedIds, id];
-            render();
-        }
-
-        function removePlayerFromDB(id) {
-            if(confirm("Excluir atleta?")) {
-                state.players = state.players.filter(p => p.id !== id);
-                state.confirmedIds = state.confirmedIds.filter(c => c !== id);
-                savePlayersToStorage();
-                render();
+        function renderGoalFlow(team) {
+            if (!state.selectedPlayerId) {
+                return team.map(p => `<button onclick="state.selectedPlayerId = ${p.id}; render()" class="w-full p-4 bg-gray-50 rounded-2xl font-black uppercase italic text-left text-xs">${p.name}</button>`).join('');
+            } else {
+                return `<button onclick="registerGoal(null)" class="w-full p-4 bg-gray-100 rounded-2xl font-black text-xs uppercase mb-2">Sem Assistência</button>` + 
+                       team.filter(p => p.id !== state.selectedPlayerId).map(p => `<button onclick="registerGoal(${p.id})" class="w-full p-4 bg-blue-50 text-blue-900 rounded-2xl font-black text-xs uppercase italic mt-1 text-left">${p.name}</button>`).join('');
             }
         }
 
-        function toggleTimer() {
-            state.isActive = !state.isActive;
-            if (state.isActive) {
-                timerInterval = setInterval(() => {
-                    if (state.timer > 0) { state.timer--; render(); } else { toggleTimer(); }
-                }, 1000);
-            } else { clearInterval(timerInterval); }
-            render();
-        }
-
-        function openSubModal(teamName, playerId) {
-            const team = teamName === 'A' ? state.teamA : state.teamB;
-            const player = team.find(p => p.id === playerId);
-            if(state.waitingList.length === 0) return alert("Fila de espera vazia!");
-            state.subModal = { team, player, teamName };
-            render();
-        }
-
-        function executeSub() {
-            const { team, player, teamName } = state.subModal;
-            const next = state.waitingList.shift();
-            state.waitingList.push(player);
-            const newTeam = team.map(p => p.id === player.id ? next : p);
-            if (teamName === 'A') state.teamA = newTeam; else state.teamB = newTeam;
-            state.subModal = null;
-            render();
+        function renderCardFlow(team) {
+            if (!state.selectedPlayerId) {
+                return team.map(p => `<button onclick="state.selectedPlayerId = ${p.id}; render()" class="w-full p-4 bg-gray-50 rounded-2xl font-black uppercase italic text-left text-xs">${p.name}</button>`).join('');
+            } else {
+                return `
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="registerCard(${state.selectedPlayerId}, 'yellow')" class="p-8 bg-yellow-400 rounded-2xl flex flex-col items-center gap-2">
+                            <div class="w-4 h-6 bg-yellow-400 border border-yellow-500 rounded-sm"></div>
+                            <span class="font-black italic uppercase text-[10px]">AMARELO</span>
+                        </button>
+                        <button onclick="registerCard(${state.selectedPlayerId}, 'red')" class="p-8 bg-red-600 rounded-2xl flex flex-col items-center gap-2 text-white">
+                            <div class="w-4 h-6 bg-red-600 border border-red-700 rounded-sm"></div>
+                            <span class="font-black italic uppercase text-[10px]">VERMELHO</span>
+                        </button>
+                    </div>
+                `;
+            }
         }
 
         render();
+        startPenaltyTimer();
     </script>
 </body>
 </html>
