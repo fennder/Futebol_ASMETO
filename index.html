@@ -285,7 +285,7 @@
             document.getElementById('photo-preview').classList.add('hidden');
             document.getElementById('camera-placeholder').classList.remove('hidden');
             
-            if(state.teamA.length < 5 || state.teamB.length < 5) { // Auto-fill if empty
+            if(state.teamA.length < 7 || state.teamB.length < 7) { // Auto-fill if empty
                 drawTeams();
             }
             
@@ -296,7 +296,7 @@
         // --- Match Logic ---
 
         function drawTeams() {
-            // Fill Team A then Team B based on defined size (ex: 5 vs 5)
+            // Fill Team A then Team B based on defined size (ex: 7 vs 7)
             const size = 7; 
             while(state.teamA.length < size && state.queue.length > 0) {
                 state.teamA.push(state.queue.shift());
