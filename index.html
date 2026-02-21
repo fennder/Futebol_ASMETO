@@ -5,705 +5,706 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASMETO 2026 - Gestor de Futebol</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js" type="module"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .bg-pitch { background-color: #2d5a27; }
-        .card-player { transition: all 0.2s; }
-        .card-player:active { transform: scale(0.98); }
-        .suspended { filter: grayscale(1); opacity: 0.6; border: 2px solid #ef4444 !important; }
-        .video-container { width: 100%; max-width: 320px; border-radius: 8px; overflow: hidden; }
-        #camera-preview { width: 100%; transform: scaleX(-1); }
+        .modal { transition: opacity 0.25s ease; }
+        body.modal-active { overflow-x: hidden; overflow-y: visible !important; }
+        .timer-glow { text-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+        .card-yellow { background-color: #fbbf24; }
+        .card-red { background-color: #ef4444; }
+        .suspended { filter: grayscale(1); opacity: 0.6; pointer-events: none; }
     </style>
 </head>
-<body class="pb-20">
+<body class="bg-gray-100 font-sans text-gray-900 mb-20">
 
-    <!-- Navegação Superior -->
-    <nav class="bg-indigo-700 text-white p-4 shadow-lg sticky top-0 z-40">
+    <!-- Header Principal -->
+    <nav class="bg-green-700 text-white p-4 shadow-lg sticky top-0 z-50">
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold tracking-tighter">ASMETO 2026</h1>
-            <div id="nav-status" class="text-sm font-medium bg-indigo-800 px-3 py-1 rounded-full">
-                Sessão: <span id="current-session-name">Nenhuma</span>
-            </div>
+            <div id="connection-status" class="text-xs bg-green-800 px-2 py-1 rounded">Aguardando Conexão...</div>
         </div>
     </nav>
 
-    <!-- Container Principal -->
-    <main class="container mx-auto p-4 max-w-4xl">
-
-        <!-- Menu de Abas -->
-        <div class="flex space-x-2 mb-6 overflow-x-auto pb-2">
-            <button onclick="showTab('tab-sessao')" class="tab-btn active bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Sessão</button>
-            <button onclick="showTab('tab-atletas')" class="tab-btn bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold border">Atletas</button>
-            <button onclick="showTab('tab-jogo')" class="tab-btn bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold border">Jogo</button>
-            <button onclick="showTab('tab-ranking')" class="tab-btn bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold border">Ranking</button>
+    <div id="app" class="container mx-auto p-2 max-w-4xl">
+        <!-- Navegação por Abas -->
+        <div class="flex border-b border-gray-300 mb-4 overflow-x-auto bg-white rounded-t-lg shadow-sm">
+            <button onclick="switchTab('sessao')" class="tab-btn px-4 py-3 font-semibold text-green-700 border-b-2 border-green-700">Sessão</button>
+            <button onclick="switchTab('cadastro')" class="tab-btn px-4 py-3 font-semibold text-gray-500">Atletas</button>
+            <button onclick="switchTab('jogo')" class="tab-btn px-4 py-3 font-semibold text-gray-500">Match Day</button>
+            <button onclick="switchTab('ranking')" class="tab-btn px-4 py-3 font-semibold text-gray-500">Ranking</button>
         </div>
 
-        <!-- ABA 1: GESTÃO DE SESSÃO -->
-        <section id="tab-sessao" class="tab-content">
-            <div class="bg-white p-6 rounded-xl shadow-sm mb-6">
-                <h2 class="text-lg font-bold mb-4">Nova Sessão / Histórico</h2>
-                <div class="flex flex-col gap-4">
-                    <input type="text" id="session-name-input" placeholder="Ex: Pelada de Quarta" class="p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                    <button onclick="createSession()" class="bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition">CRIAR SESSÃO</button>
+        <!-- ABA 1: SESSÃO / HISTÓRICO -->
+        <div id="tab-sessao" class="tab-content block">
+            <div class="bg-white p-4 rounded-lg shadow mb-4">
+                <h2 class="text-lg font-bold mb-3">Nova Pelada</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="sessao-nome" placeholder="Ex: Pelada de Quarta" class="border p-2 rounded flex-1">
+                    <button onclick="criarSessao()" class="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700">Criar</button>
                 </div>
             </div>
-
-            <div class="bg-white p-6 rounded-xl shadow-sm">
-                <h3 class="font-bold mb-4 flex justify-between items-center">
-                    Histórico Local
-                    <button onclick="exportHistoryCSV()" class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Baixar CSV</button>
-                </h3>
-                <div id="history-list" class="space-y-3">
-                    <p class="text-gray-500 text-sm text-center">Nenhuma sessão registrada.</p>
-                </div>
+            
+            <div id="lista-sessoes" class="space-y-2">
+                <!-- Histórico será carregado aqui -->
             </div>
-        </section>
+        </div>
 
-        <!-- ABA 2: ATLETAS E PRESENÇA -->
-        <section id="tab-atletas" class="tab-content hidden">
-            <div class="bg-white p-6 rounded-xl shadow-sm mb-6">
-                <h2 class="text-lg font-bold mb-4">Cadastro de Atleta</h2>
-                <div class="space-y-4">
-                    <div class="flex flex-col items-center">
-                        <div class="video-container bg-black aspect-video mb-2 flex items-center justify-center relative">
-                            <video id="camera-preview" autoplay playsinline class="hidden"></video>
-                            <canvas id="photo-canvas" class="hidden"></canvas>
-                            <img id="photo-preview" src="" class="hidden w-full h-full object-cover">
-                            <div id="camera-placeholder" class="text-white text-xs text-center p-4">Câmera desativada</div>
-                        </div>
-                        <div class="flex space-x-2">
-                            <button id="btn-start-camera" onclick="startCamera()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">Ligar Câmera</button>
-                            <button id="btn-capture" onclick="capturePhoto()" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-medium hidden">Tirar Foto</button>
-                        </div>
+        <!-- ABA 2: CADASTRO E PRESENÇA -->
+        <div id="tab-cadastro" class="tab-content hidden">
+            <div class="bg-white p-4 rounded-lg shadow mb-4">
+                <h2 class="text-lg font-bold mb-3">Cadastro de Atleta</h2>
+                <div class="space-y-3">
+                    <input type="text" id="atleta-nome" placeholder="Nome Completo" class="w-full border p-2 rounded">
+                    
+                    <div class="flex flex-col items-center gap-2">
+                        <video id="video" class="w-full max-w-xs h-48 bg-black rounded" autoplay playsinline></video>
+                        <canvas id="canvas" class="hidden"></canvas>
+                        <button onclick="tirarFoto()" class="bg-blue-500 text-white px-4 py-2 rounded-full flex items-center gap-2">
+                            <span>📸 Capturar Foto</span>
+                        </button>
+                        <img id="foto-preview" class="hidden w-24 h-24 rounded-full object-cover border-2 border-blue-500">
                     </div>
-                    <input type="text" id="player-name-input" placeholder="Nome Completo do Atleta" class="w-full p-3 border rounded-lg">
-                    <button onclick="registerPlayer()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg">CADASTRAR E CONFIRMAR</button>
+
+                    <button onclick="salvarAtleta()" class="w-full bg-green-600 text-white p-3 rounded font-bold">Cadastrar e Confirmar Presença</button>
                 </div>
             </div>
 
-            <div class="bg-white p-6 rounded-xl shadow-sm">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold">Confirmados para Hoje</h3>
-                    <button onclick="drawTeams()" class="bg-green-600 text-white text-sm px-4 py-2 rounded-lg font-bold">SORTEAR TIMES</button>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h2 class="text-lg font-bold mb-3 font-bold">Lista de Presença / Inserir na Espera</h2>
+                <div id="lista-presenca" class="divide-y">
+                    <!-- Atletas confirmados aparecem aqui -->
                 </div>
-                <div class="mb-4">
-                    <label class="text-xs text-gray-500 block mb-1">Jogadores por Equipa:</label>
-                    <input type="number" id="players-per-team" value="7" min="2" class="p-2 border rounded-lg w-20">
-                </div>
-                <div id="attendance-list" class="space-y-2">
-                    <!-- Lista de Presença Dinâmica -->
-                </div>
+                <button onclick="iniciarSorteio()" class="mt-4 w-full bg-blue-600 text-white p-3 rounded font-bold">Gerar Sorteio Inicial (A vs B)</button>
             </div>
-        </section>
+        </div>
 
         <!-- ABA 3: MATCH DAY (JOGO) -->
-        <section id="tab-jogo" class="tab-content hidden">
+        <div id="tab-jogo" class="tab-content hidden">
             <!-- Cronômetro e Placar -->
-            <div class="bg-pitch text-white p-6 rounded-xl shadow-lg mb-6 text-center">
-                <div class="flex justify-around items-center mb-4">
-                    <div class="flex flex-col items-center">
-                        <span class="text-xs uppercase font-bold opacity-80">Equipa A</span>
-                        <div id="score-a" class="text-5xl font-black">0</div>
+            <div class="bg-gray-900 text-white p-6 rounded-xl shadow-2xl mb-4 text-center">
+                <div id="timer" class="text-6xl font-mono timer-glow mb-4">10:00</div>
+                <div class="flex justify-center gap-4 mb-4">
+                    <button id="btn-timer-toggle" onclick="toggleTimer()" class="bg-green-600 px-6 py-2 rounded-lg font-bold">INICIAR</button>
+                    <button onclick="resetTimer()" class="bg-gray-700 px-6 py-2 rounded-lg font-bold">RESET</button>
+                </div>
+                
+                <div class="flex justify-between items-center bg-gray-800 p-4 rounded-lg">
+                    <div class="text-center w-1/3">
+                        <span class="block text-xs uppercase text-gray-400">Equipe A</span>
+                        <span id="placar-a" class="text-5xl font-bold">0</span>
                     </div>
-                    <div class="flex flex-col items-center">
-                        <div id="timer-display" class="text-4xl font-mono bg-black/30 px-4 py-2 rounded-lg mb-2">10:00</div>
-                        <div class="flex space-x-2">
-                            <button id="timer-ctrl" onclick="toggleTimer()" class="bg-red text-pitch px-4 py-1 rounded-full text-xs font-bold">INICIAR</button>
-                            <button onclick="configTimer()" class="bg-white/20 text-white px-3 py-1 rounded-full text-xs">⚙️</button>
-                        </div>
-                    </div>
-                    <div class="flex flex-col items-center">
-                        <span class="text-xs uppercase font-bold opacity-80">Equipa B</span>
-                        <div id="score-b" class="text-5xl font-black">0</div>
+                    <div class="text-2xl font-bold text-gray-600">VS</div>
+                    <div class="text-center w-1/3">
+                        <span class="block text-xs uppercase text-gray-400">Equipe B</span>
+                        <span id="placar-b" class="text-5xl font-bold">0</span>
                     </div>
                 </div>
             </div>
 
             <!-- Times em Campo -->
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="space-y-2">
-                    <h4 class="text-sm font-bold border-b pb-1 flex justify-between">
-                        TIME A <button onclick="addGoal('A')" class="text-indigo-600 bg-white px-2 rounded">+ GOL</button>
-                    </h4>
-                    <div id="field-a" class="space-y-1"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="bg-white p-3 rounded-lg shadow border-t-4 border-blue-500">
+                    <h3 class="font-bold border-b pb-1 mb-2">Equipe A</h3>
+                    <div id="campo-a" class="space-y-1"></div>
+                    <button onclick="finalizarPartida('A')" class="mt-2 w-full bg-blue-100 text-blue-700 py-1 rounded text-sm font-bold">Vencedor A</button>
                 </div>
-                <div class="space-y-2">
-                    <h4 class="text-sm font-bold border-b pb-1 flex justify-between">
-                        TIME B <button onclick="addGoal('B')" class="text-indigo-600 bg-white px-2 rounded">+ GOL</button>
-                    </h4>
-                    <div id="field-b" class="space-y-1"></div>
+                <div class="bg-white p-3 rounded-lg shadow border-t-4 border-red-500">
+                    <h3 class="font-bold border-b pb-1 mb-2">Equipe B</h3>
+                    <div id="campo-b" class="space-y-1"></div>
+                    <button onclick="finalizarPartida('B')" class="mt-2 w-full bg-red-100 text-red-700 py-1 rounded text-sm font-bold">Vencedor B</button>
                 </div>
             </div>
 
             <!-- Fila de Espera -->
-            <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
-                <h4 class="text-sm font-bold mb-3 uppercase text-gray-500">Próximos da Fila (Prioridade)</h4>
-                <div id="waiting-list" class="flex flex-wrap gap-2"></div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="font-bold mb-2 flex justify-between">
+                    <span>Fila de Espera</span>
+                    <span id="espera-count" class="text-xs bg-gray-200 px-2 py-1 rounded">0</span>
+                </h3>
+                <div id="fila-espera" class="flex gap-2 overflow-x-auto pb-2">
+                    <!-- Jogadores em espera -->
+                </div>
             </div>
-
-            <!-- Finalizar Partida -->
-            <div class="flex space-x-2">
-                <button onclick="endMatch('A')" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-bold">VENCEDOR A</button>
-                <button onclick="endMatch('Empate')" class="flex-1 bg-gray-500 text-white py-3 rounded-lg font-bold">EMPATE</button>
-                <button onclick="endMatch('B')" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold">VENCEDOR B</button>
+            
+            <!-- Suspensos -->
+            <div id="area-suspensos" class="mt-4 hidden">
+                <h3 class="font-bold text-red-600 mb-2">Punições em Tempo Real (VM)</h3>
+                <div id="lista-suspensos" class="grid grid-cols-1 gap-2"></div>
             </div>
-
-            <!-- Jogadores Punidos (VM) -->
-            <div id="punished-container" class="mt-8 hidden">
-                <h4 class="text-sm font-bold mb-3 text-red-600 uppercase">Suspensos Temporários</h4>
-                <div id="punished-list" class="space-y-2"></div>
-            </div>
-        </section>
+        </div>
 
         <!-- ABA 4: RANKING -->
-        <section id="tab-ranking" class="tab-content hidden">
-            <div class="bg-white p-4 rounded-xl shadow-sm overflow-hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="font-bold">Estatísticas Gerais</h2>
-                    <button onclick="exportRankingCSV()" class="bg-green-100 text-green-700 text-xs px-3 py-1 rounded font-bold">Exportar CSV</button>
+        <div id="tab-ranking" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-gray-100 border-b">
+                        <tr>
+                            <th class="p-2 text-xs">Atleta</th>
+                            <th class="p-2 text-xs">GOL</th>
+                            <th class="p-2 text-xs">AST</th>
+                            <th class="p-2 text-xs">VIT</th>
+                            <th class="p-2 text-xs text-center">APR%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-body" class="divide-y">
+                        <!-- Ranking carregado aqui -->
+                    </tbody>
+                </table>
+            </div>
+            <button onclick="exportarEstatisticas()" class="mt-4 w-full bg-gray-800 text-white p-3 rounded font-bold">Exportar CSV Geral</button>
+        </div>
+    </div>
+
+    <!-- MODAL: EVENTOS DE GOL -->
+    <div id="modal-evento" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-[100]">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+            <div class="modal-content py-4 text-left px-6">
+                <h2 id="modal-titulo" class="text-xl font-bold mb-4">Registrar Gol</h2>
+                <div id="modal-corpo" class="space-y-4">
+                    <!-- Dinâmico -->
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-gray-50 border-b">
-                            <tr>
-                                <th class="p-2">Atleta</th>
-                                <th class="p-2 text-center">GOL</th>
-                                <th class="p-2 text-center">AST</th>
-                                <th class="p-2 text-center">CA</th>
-                                <th class="p-2 text-center">CV</th>
-                                <th class="p-2 text-center">VIT</th>
-                                <th class="p-2 text-center">APR%</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ranking-body"></tbody>
-                    </table>
+                <div class="mt-6 flex justify-end">
+                    <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded mr-2">Cancelar</button>
                 </div>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- MODAL DE REGISTRO DE EVENTOS (Gol/Cartão) -->
-    <div id="event-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white w-full max-w-sm rounded-2xl p-6">
-            <h3 id="modal-title" class="text-xl font-bold mb-4">Registrar Gol</h3>
-            
-            <div id="modal-step-1">
-                <p class="text-sm text-gray-500 mb-3" id="modal-instruction">Quem marcou o gol?</p>
-                <div id="modal-player-list" class="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4"></div>
-            </div>
-
-            <div id="modal-step-2" class="hidden">
-                <p class="text-sm text-gray-500 mb-3">Quem deu a assistência? (Obrigatório)</p>
-                <div id="modal-assist-list" class="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4"></div>
-            </div>
-
-            <div class="flex justify-end space-x-2">
-                <button onclick="closeModal()" class="text-gray-500 px-4 py-2 font-medium">Cancelar</button>
             </div>
         </div>
     </div>
 
-    <!-- Script de Logica -->
-    <script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, where, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        // --- Configuração Firebase ---
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'asmeto-2026';
+
         // --- Estado Global ---
-        let sessions = JSON.parse(localStorage.getItem('asmeto_sessions')) || [];
-        let currentSession = null;
-        let players = JSON.parse(localStorage.getItem('asmeto_players')) || [];
-        let sessionPlayers = []; // Confirmados na sessão atual
-        let teamA = [];
-        let teamB = [];
-        let waitingList = [];
-        let punishedPlayers = [];
-        let stats = JSON.parse(localStorage.getItem('asmeto_stats')) || {}; // {playerId: {gol, ast, ca, cv, vit, games}}
-        
-        // Cronômetro
-        let timerSeconds = 480;
-        let initialSeconds = 480;
-        let timerInterval = null;
-        let isTimerRunning = false;
+        let user = null;
+        let atletas = [];
+        let timeA = [];
+        let timeB = [];
+        let espera = [];
+        let suspensos = [];
+        let cronometro = { tempo: 600, ativo: false, interval: null };
+        let ultimaFoto = null;
 
-        // Foto Temporária
-        let currentCapturedPhoto = "";
-
-        // --- Inicialização ---
-        function showTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active', 'bg-indigo-600', 'text-white'));
-            
-            document.getElementById(tabId).classList.remove('hidden');
-            const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
-            activeBtn.classList.add('active', 'bg-indigo-600', 'text-white');
-            
-            if(tabId === 'tab-ranking') renderRanking();
-            if(tabId === 'tab-sessao') renderSessions();
-        }
-
-        // --- Gestão de Sessão ---
-        function createSession() {
-            const name = document.getElementById('session-name-input').value;
-            if(!name) return showMsg("Insira o nome da sessão");
-            
-            currentSession = {
-                id: Date.now(),
-                name: name,
-                date: new Date().toLocaleDateString(),
-                confirmedCount: 0
-            };
-            sessions.push(currentSession);
-            localStorage.setItem('asmeto_sessions', JSON.stringify(sessions));
-            
-            document.getElementById('current-session-name').innerText = name;
-            document.getElementById('session-name-input').value = "";
-            sessionPlayers = [];
-            renderAttendance();
-            showTab('tab-atletas');
-        }
-
-        function renderSessions() {
-            const container = document.getElementById('history-list');
-            if(sessions.length === 0) return;
-            container.innerHTML = sessions.map(s => `
-                <div class="border p-3 rounded-lg flex justify-between items-center text-sm">
-                    <div>
-                        <div class="font-bold">${s.name}</div>
-                        <div class="text-xs text-gray-500">${s.date} - ${s.confirmedCount} atletas</div>
-                    </div>
-                    <button onclick="loadSession(${s.id})" class="text-indigo-600 font-bold">Selecionar</button>
-                </div>
-            `).join('');
-        }
-
-        function loadSession(id) {
-            currentSession = sessions.find(s => s.id === id);
-            document.getElementById('current-session-name').innerText = currentSession.name;
-            showTab('tab-atletas');
-        }
-
-        // --- Gestão de Atletas ---
-        async function startCamera() {
-            const video = document.getElementById('camera-preview');
-            const placeholder = document.getElementById('camera-placeholder');
+        // --- Autenticação e Inicialização ---
+        async function initApp() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                video.srcObject = stream;
-                video.classList.remove('hidden');
-                placeholder.classList.add('hidden');
-                document.getElementById('btn-capture').classList.remove('hidden');
-                document.getElementById('btn-start-camera').innerText = "Reiniciar Câmera";
-            } catch (err) {
-                showMsg("Erro ao acessar câmera: " + err.message);
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Erro na autenticação:", error);
+                document.getElementById('connection-status').innerText = "Erro de Conexão";
+                document.getElementById('connection-status').classList.replace('bg-green-800', 'bg-red-800');
             }
         }
 
-        function capturePhoto() {
-            const video = document.getElementById('camera-preview');
-            const canvas = document.getElementById('photo-canvas');
-            const preview = document.getElementById('photo-preview');
-            
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(video, 0, 0);
-            
-            currentCapturedPhoto = canvas.toDataURL('image/jpeg', 0.5);
-            preview.src = currentCapturedPhoto;
-            preview.classList.remove('hidden');
-            video.classList.add('hidden');
-            document.getElementById('btn-capture').innerText = "Tirar Novamente";
-        }
-
-        function registerPlayer() {
-            const name = document.getElementById('player-name-input').value;
-            if(!name) return showMsg("Nome é obrigatório");
-            if(!currentSession) return showMsg("Crie uma sessão primeiro");
-
-            const player = {
-                id: Date.now().toString(),
-                name: name,
-                photo: currentCapturedPhoto || "https://ui-avatars.com/api/?name="+name,
-                winsInRow: 0
-            };
-
-            players.push(player);
-            localStorage.setItem('asmeto_players', JSON.stringify(players));
-            
-            // Inicia estatísticas se novo
-            if(!stats[player.id]) {
-                stats[player.id] = { gol: 0, ast: 0, ca: 0, cv: 0, vit: 0, games: 0 };
+        onAuthStateChanged(auth, (u) => {
+            user = u;
+            if (user) {
+                document.getElementById('connection-status').innerText = "Conectado";
+                startListeners();
             }
+        });
 
-            // Confirma na sessão
-            sessionPlayers.push(player);
-            currentSession.confirmedCount = sessionPlayers.length;
-            localStorage.setItem('asmeto_sessions', JSON.stringify(sessions));
+        function startListeners() {
+            if (!user) return;
 
-            // Se o jogo já estiver rolando, quem chega entra no fim da fila
-            if(teamA.length > 0) {
-                waitingList.push(player);
-                renderField();
-            }
-
-            // Reset UI
-            document.getElementById('player-name-input').value = "";
-            document.getElementById('photo-preview').classList.add('hidden');
-            document.getElementById('camera-placeholder').classList.remove('hidden');
-            currentCapturedPhoto = "";
-            
-            renderAttendance();
-            showMsg("Atleta cadastrado!");
-        }
-
-        function renderAttendance() {
-            const list = document.getElementById('attendance-list');
-            list.innerHTML = sessionPlayers.map(p => `
-                <div class="flex items-center justify-between bg-gray-50 p-2 rounded-lg border">
-                    <div class="flex items-center space-x-3">
-                        <img src="${p.photo}" class="w-10 h-10 rounded-full object-cover border">
-                        <span class="font-medium">${p.name}</span>
-                    </div>
-                    <input type="checkbox" checked class="w-5 h-5 accent-indigo-600">
-                </div>
-            `).join('');
-        }
-
-        // --- Lógica de Times ---
-        function drawTeams() {
-            if(sessionPlayers.length < 4) return showMsg("Mínimo de 4 atletas");
-            const perTeam = parseInt(document.getElementById('players-per-team').value);
-            
-            // Sorteio por ordem de cadastro conforme requisito
-            const pool = [...sessionPlayers];
-            teamA = pool.splice(0, perTeam);
-            teamB = pool.splice(0, perTeam);
-            waitingList = pool; // Resto vai para fila
-
-            showTab('tab-jogo');
-            renderField();
-        }
-
-        function renderField() {
-            const renderList = (players, containerId) => {
-                const div = document.getElementById(containerId);
-                div.innerHTML = players.map(p => {
-                    const isPunished = punishedPlayers.find(pp => pp.id === p.id);
-                    return `
-                        <div class="flex items-center justify-between bg-white p-2 rounded shadow-sm border ${isPunished ? 'suspended' : ''}">
-                            <div class="flex items-center space-x-2">
-                                <img src="${p.photo}" class="w-8 h-8 rounded-full">
-                                <span class="text-xs font-bold truncate w-20">${p.name}</span>
+            // Ouvinte de Sessões
+            const sessoesQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'sessoes'));
+            onSnapshot(sessoesQuery, (snap) => {
+                const lista = document.getElementById('lista-sessoes');
+                lista.innerHTML = '';
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    lista.innerHTML += `
+                        <div class="bg-white p-3 rounded shadow flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold">${data.nome}</h4>
+                                <p class="text-xs text-gray-400">${data.data ? new Date(data.data.seconds * 1000).toLocaleDateString() : 'Hoje'}</p>
                             </div>
-                            <div class="flex space-x-1">
-                                <button onclick="giveCard('${p.id}', 'amarelo')" class="bg-yellow-400 w-4 h-6 rounded-sm"></button>
-                                <button onclick="giveCard('${p.id}', 'vermelho')" class="bg-red-500 w-4 h-6 rounded-sm"></button>
-                                <button onclick="substitutePlayer('${p.id}', '${containerId.slice(-1).toUpperCase()}')" class="bg-gray-200 p-1 rounded text-[10px]">🔃</button>
-                            </div>
+                            <button class="text-green-600 font-bold">Abrir</button>
                         </div>
                     `;
-                }).join('');
+                });
+            }, (error) => console.error("Erro em sessoes:", error));
+
+            // Ouvinte de Atletas
+            const atletasQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'atletas'));
+            onSnapshot(atletasQuery, (snap) => {
+                atletas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                
+                const listaP = document.getElementById('lista-presenca');
+                listaP.innerHTML = atletas.sort((a,b) => b.confirmado - a.confirmado || a.nome.localeCompare(b.nome)).map(a => {
+                    // Verifica se já está em jogo ou na espera
+                    const emJogoOuEspera = timeA.includes(a.id) || timeB.includes(a.id) || espera.includes(a.id);
+                    
+                    return `
+                    <div class="flex justify-between items-center py-3">
+                        <div class="flex items-center gap-3">
+                            <img src="${a.foto || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-full border bg-gray-200 object-cover">
+                            <div>
+                                <span class="font-medium block">${a.nome}</span>
+                                <span class="text-[10px] text-gray-500 uppercase">${emJogoOuEspera ? 'Já em Atividade' : 'Disponível'}</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            ${!emJogoOuEspera ? `<button onclick="adicionarDiretoEspera('${a.id}')" class="bg-blue-100 text-blue-700 px-3 py-1 rounded text-xs font-bold border border-blue-200">+ Espera</button>` : ''}
+                            <input type="checkbox" ${a.confirmado ? 'checked' : ''} onchange="toggleConfirmacao('${a.id}', this.checked)" class="h-6 w-6 text-green-600 rounded">
+                        </div>
+                    </div>
+                `}).join('');
+                
+                carregarRanking();
+            }, (error) => console.error("Erro em atletas:", error));
+
+            // Ouvinte da Partida Atual
+            const partidaRef = doc(db, 'artifacts', appId, 'public', 'data', 'partida_atual', 'status');
+            onSnapshot(partidaRef, (snap) => {
+                if(snap.exists()) {
+                    const data = snap.data();
+                    timeA = data.timeA || [];
+                    timeB = data.timeB || [];
+                    espera = data.espera || [];
+                    updateMatchUI(data);
+                }
+            }, (error) => console.error("Erro em partida:", error));
+
+            // Ouvinte de Suspensos
+            const suspensosQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'suspensos'));
+            onSnapshot(suspensosQuery, (snap) => {
+                suspensos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const listaS = document.getElementById('lista-suspensos');
+                const areaS = document.getElementById('area-suspensos');
+                
+                if(suspensos.length > 0) {
+                    areaS.classList.remove('hidden');
+                    listaS.innerHTML = suspensos.map(s => {
+                        const a = atletas.find(x => x.id === s.id);
+                        const restante = Math.max(0, Math.ceil((s.expira - Date.now()) / 1000));
+                        if(restante <= 0) removerSuspensao(s.id);
+                        return `
+                            <div class="flex justify-between items-center p-2 bg-red-100 rounded border border-red-200">
+                                <span class="text-sm font-bold text-red-700">${a ? a.nome : 'Jogador'}</span>
+                                <span class="text-xs font-mono bg-red-600 text-white px-2 py-1 rounded">${restante}s restantes</span>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    areaS.classList.add('hidden');
+                }
+            }, (error) => console.error("Erro em suspensos:", error));
+        }
+
+        // --- Funções de Ação ---
+
+        window.toggleConfirmacao = async (id, status) => {
+            const atRef = doc(db, 'artifacts', appId, 'public', 'data', 'atletas', id);
+            await updateDoc(atRef, { confirmado: status });
+        };
+
+        window.adicionarDiretoEspera = async (id) => {
+            const partidaRef = doc(db, 'artifacts', appId, 'public', 'data', 'partida_atual', 'status');
+            const snap = await getDoc(partidaRef);
+            if(!snap.exists()) {
+                // Caso não exista partida, cria com o jogador na espera
+                await setDoc(partidaRef, { timeA: [], timeB: [], espera: [id], placarA: 0, placarB: 0 });
+            } else {
+                const data = snap.data();
+                const novaEspera = [...(data.espera || [])];
+                if(!novaEspera.includes(id)) {
+                    novaEspera.push(id);
+                    await updateDoc(partidaRef, { espera: novaEspera });
+                }
+            }
+            alert("Atleta adicionado ao final da fila de espera!");
+        };
+
+        window.switchTab = (tabId) => {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('text-green-700', 'border-b-2', 'border-green-700');
+                b.classList.add('text-gray-500');
+            });
+            const target = document.getElementById(`tab-${tabId}`);
+            if (target) target.classList.remove('hidden');
+            
+            const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.innerText.toLowerCase().includes(tabId === 'sessao' ? 'sessão' : tabId));
+            if(btn) btn.classList.add('text-green-700', 'border-b-2', 'border-green-700');
+            
+            if(tabId === 'cadastro') startCamera();
+            else stopCamera();
+        };
+
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const preview = document.getElementById('foto-preview');
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (err) { console.warn("Câmera indisponível:", err); }
+        }
+
+        function stopCamera() {
+            if(video && video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        window.tirarFoto = () => {
+            if(!video.srcObject) return alert("Câmera não iniciada.");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            ultimaFoto = canvas.toDataURL('image/webp');
+            preview.src = ultimaFoto;
+            preview.classList.remove('hidden');
+        };
+
+        window.salvarAtleta = async () => {
+            if (!user) return alert("Aguarde a conexão...");
+            const nome = document.getElementById('atleta-nome').value;
+            if(!nome) return alert("Digite o nome");
+            
+            const novoAtleta = {
+                nome,
+                foto: ultimaFoto || '',
+                gols: 0,
+                ast: 0,
+                ca: 0,
+                cv: 0,
+                vitorias: 0,
+                partidas: 0,
+                confirmado: true,
+                posicao: Date.now()
             };
 
-            renderList(teamA, 'field-a');
-            renderList(teamB, 'field-b');
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'atletas'), novoAtleta);
+            document.getElementById('atleta-nome').value = '';
+            preview.classList.add('hidden');
+            ultimaFoto = null;
+        };
 
-            // Fila
-            const waitingDiv = document.getElementById('waiting-list');
-            waitingDiv.innerHTML = waitingList.map(p => `
-                <div class="relative group">
-                    <img src="${p.photo}" class="w-12 h-12 rounded-lg object-cover border-2 border-indigo-200">
-                    <button onclick="removeFromWaiting('${p.id}')" class="absolute -top-2 -right-2 bg-red-500 text-white text-[8px] rounded-full w-4 h-4">X</button>
-                </div>
-            `).join('');
-        }
-
-        // --- Substituições e Fila ---
-        function substitutePlayer(playerId, teamLabel) {
-            if(waitingList.length === 0) return showMsg("Ninguém na fila!");
+        window.iniciarSorteio = async () => {
+            if (!user) return;
+            const confirmados = atletas.filter(a => a.confirmado).sort((a, b) => a.posicao - b.posicao);
+            if(confirmados.length < 14) return alert("Necessário ao menos 14 atletas confirmados para sorteio inicial (7 vs 7).");
             
-            const next = waitingList.shift();
-            if(teamLabel === 'A') {
-                const idx = teamA.findIndex(p => p.id === playerId);
-                waitingList.push(teamA[idx]); // Jogador que saiu vai pro fim da fila
-                teamA[idx] = next;
-            } else {
-                const idx = teamB.findIndex(p => p.id === playerId);
-                waitingList.push(teamB[idx]);
-                teamB[idx] = next;
+            const numPorTime = 7;
+            const sorteadosA = confirmados.slice(0, numPorTime);
+            const sorteadosB = confirmados.slice(numPorTime, numPorTime * 2);
+            const sorteadosEspera = confirmados.slice(numPorTime * 2);
+
+            const partidaRef = doc(db, 'artifacts', appId, 'public', 'data', 'partida_atual', 'status');
+            await setDoc(partidaRef, {
+                timeA: sorteadosA.map(a => a.id),
+                timeB: sorteadosB.map(a => a.id),
+                espera: sorteadosEspera.map(a => a.id),
+                placarA: 0,
+                placarB: 0,
+                consecutivasA: 0,
+                consecutivasB: 0
+            });
+            
+            switchTab('jogo');
+        };
+
+        function updateMatchUI(data) {
+            const renderAtleta = (id, equipe) => {
+                const a = atletas.find(x => x.id === id);
+                if(!a) return '';
+                const isSuspenso = suspensos.some(s => s.id === id);
+                return `
+                    <div class="flex items-center justify-between p-2 border rounded ${isSuspenso ? 'bg-red-50 border-red-200' : 'bg-gray-50'}">
+                        <div class="flex items-center gap-2">
+                            <img src="${a.foto || 'https://via.placeholder.com/32'}" class="w-8 h-8 rounded-full bg-gray-300 object-cover">
+                            <span class="text-sm font-medium ${isSuspenso ? 'line-through text-red-400' : ''}">${a.nome}</span>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="abrirModalGol('${id}', '${equipe}')" title="Gol" class="bg-green-500 text-white w-6 h-6 rounded text-xs">G</button>
+                            <button onclick="darCartao('${id}', 'CA')" title="Amarelo" class="card-yellow text-white w-6 h-6 rounded text-xs">A</button>
+                            <button onclick="darCartao('${id}', 'CV')" title="Vermelho" class="card-red text-white w-6 h-6 rounded text-xs">V</button>
+                            <button onclick="substituir('${id}', '${equipe}')" title="Substituir" class="bg-gray-400 text-white w-6 h-6 rounded text-xs">🔄</button>
+                        </div>
+                    </div>
+                `;
+            };
+
+            document.getElementById('campo-a').innerHTML = (data.timeA || []).map(id => renderAtleta(id, 'A')).join('');
+            document.getElementById('campo-b').innerHTML = (data.timeB || []).map(id => renderAtleta(id, 'B')).join('');
+            document.getElementById('placar-a').innerText = data.placarA || 0;
+            document.getElementById('placar-b').innerText = data.placarB || 0;
+            
+            document.getElementById('fila-espera').innerHTML = (data.espera || []).map(id => {
+                const a = atletas.find(x => x.id === id);
+                return a ? `
+                    <div class="min-w-[80px] text-center relative">
+                        <button onclick="removerDaEspera('${id}')" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">×</button>
+                        <img src="${a.foto || 'https://via.placeholder.com/48'}" class="w-12 h-12 rounded-full mx-auto border-2 border-gray-200 object-cover">
+                        <p class="text-[10px] truncate px-1 mt-1 font-medium">${a.nome}</p>
+                    </div>
+                ` : '';
+            }).join('');
+            document.getElementById('espera-count').innerText = (data.espera || []).length;
+        }
+
+        window.removerDaEspera = async (id) => {
+            const partidaRef = doc(db, 'artifacts', appId, 'public', 'data', 'partida_atual', 'status');
+            const snap = await getDoc(partidaRef);
+            if(snap.exists()){
+                const d = snap.data();
+                const novaEspera = (d.espera || []).filter(eid => eid !== id);
+                await updateDoc(partidaRef, { espera: novaEspera });
             }
-            renderField();
-        }
+        };
 
-        function removeFromWaiting(id) {
-            waitingList = waitingList.filter(p => p.id !== id);
-            renderField();
-        }
+        window.abrirModalGol = (atletaId, equipe) => {
+            const idsTime = equipe === 'A' ? timeA : timeB;
+            const assistentes = idsTime.filter(id => id !== atletaId);
+            
+            document.getElementById('modal-titulo').innerText = "Assistência?";
+            let html = `<div class='grid grid-cols-1 gap-2'>`;
+            assistentes.forEach(id => {
+                const a = atletas.find(x => x.id === id);
+                if(a) html += `<button onclick="registrarGol('${atletaId}', '${id}', '${equipe}')" class="p-3 border rounded text-left hover:bg-green-50">⚽ Assist: ${a.nome}</button>`;
+            });
+            html += `<button onclick="registrarGol('${atletaId}', null, '${equipe}')" class="p-3 border rounded text-left italic text-gray-400">Sem Assistência</button>`;
+            html += `</div>`;
+            
+            document.getElementById('modal-corpo').innerHTML = html;
+            openModal();
+        };
 
-        // --- Match Day ---
-        function toggleTimer() {
-            const btn = document.getElementById('timer-ctrl');
-            if(isTimerRunning) {
-                clearInterval(timerInterval);
-                btn.innerText = "RETOMAR";
+        window.registrarGol = async (autorId, assistId, equipe) => {
+            const partidaRef = doc(db, 'artifacts', appId, 'public', 'data', 'partida_atual', 'status');
+            const snap = await getDoc(partidaRef);
+            if(!snap.exists()) return;
+            const pData = snap.data();
+            
+            const campoPlacar = `placar${equipe}`;
+            await updateDoc(partidaRef, { [campoPlacar]: (pData[campoPlacar] || 0) + 1 });
+
+            const autorRef = doc(db, 'artifacts', appId, 'public', 'data', 'atletas', autorId);
+            const autor = atletas.find(x => x.id === autorId);
+            if(autor) await updateDoc(autorRef, { gols: (autor.gols || 0) + 1 });
+
+            if(assistId) {
+                const assistRef = doc(db, 'artifacts', appId, 'public', 'data', 'atletas', assistId);
+                const assist = atletas.find(x => x.id === assistId);
+                if(assist) await updateDoc(assistRef, { ast: (assist.ast || 0) + 1 });
+            }
+
+            closeModal();
+        };
+
+        window.darCartao = async (id, tipo) => {
+            const at = atletas.find(x => x.id === id);
+            if(!at) return;
+            const atRef = doc(db, 'artifacts', appId, 'public', 'data', 'atletas', id);
+            
+            if(tipo === 'CA') {
+                const novosCA = (at.ca || 0) + 1;
+                await updateDoc(atRef, { ca: novosCA });
+                if(novosCA % 2 === 0) suspenderJogador(id);
             } else {
-                timerInterval = setInterval(() => {
-                    if(timerSeconds <= 0) {
-                        clearInterval(timerInterval);
-                        showMsg("Fim de Jogo!");
-                        return;
+                await updateDoc(atRef, { cv: (at.cv || 0) + 1 });
+                suspenderJogador(id);
+            }
+        };
+
+        async function suspenderJogador(id) {
+            const expira = Date.now() + (90 * 1000);
+            const susRef = doc(db, 'artifacts', appId, 'public', 'data', 'suspensos', id);
+            await setDoc(susRef, { id, expira });
+        }
+
+        async function removerSuspensao(id) {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'suspensos', id));
+        }
+
+        window.substituir = async (saiId, equipe) => {
+            const partidaRef = doc(db, 'artifacts', appId, 'public', 'data', 'partida_atual', 'status');
+            const snap = await getDoc(partidaRef);
+            if(!snap.exists()) return;
+            const pData = snap.data();
+
+            if(!pData.espera || pData.espera.length === 0) return alert("Fila de espera está vazia!");
+
+            const entraId = pData.espera[0];
+            const novaEspera = [...pData.espera.slice(1), saiId];
+
+            const tA = equipe === 'A' ? pData.timeA.map(id => id === saiId ? entraId : id) : pData.timeA;
+            const tB = equipe === 'B' ? pData.timeB.map(id => id === saiId ? entraId : id) : pData.timeB;
+
+            await updateDoc(partidaRef, { timeA: tA, timeB: tB, espera: novaEspera });
+        };
+
+        window.finalizarPartida = async (vencedor) => {
+            const partidaRef = doc(db, 'artifacts', appId, 'public', 'data', 'partida_atual', 'status');
+            const snap = await getDoc(partidaRef);
+            if(!snap.exists()) return;
+            const pData = snap.data();
+
+            const timeVence = vencedor === 'A' ? pData.timeA : pData.timeB;
+            const timePerde = vencedor === 'A' ? pData.timeB : pData.timeA;
+            
+            for(let id of timeVence) {
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'atletas', id);
+                const at = atletas.find(x => x.id === id);
+                if(at) await updateDoc(ref, { vitorias: (at.vitorias || 0) + 1, partidas: (at.partidas || 0) + 1 });
+            }
+            for(let id of timePerde) {
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'atletas', id);
+                const at = atletas.find(x => x.id === id);
+                if(at) await updateDoc(ref, { partidas: (at.partidas || 0) + 1 });
+            }
+
+            let consec = (vencedor === 'A' ? pData.consecutivasA : pData.consecutivasB) + 1;
+            let novaEspera = [...pData.espera, ...timePerde];
+            let novoVence = timeVence;
+            
+            if(consec >= 3) {
+                novaEspera = [...novaEspera, ...timeVence];
+                novoVence = novaEspera.splice(0, 7);
+                consec = 0;
+            }
+            const novoDesafiante = novaEspera.splice(0, 7);
+
+            await updateDoc(partidaRef, {
+                timeA: vencedor === 'A' ? novoVence : novoDesafiante,
+                timeB: vencedor === 'B' ? novoVence : novoDesafiante,
+                espera: novaEspera,
+                placarA: 0, placarB: 0,
+                consecutivasA: vencedor === 'A' ? consec : 0,
+                consecutivasB: vencedor === 'B' ? consec : 0
+            });
+            
+            resetTimer();
+        };
+
+        window.toggleTimer = () => {
+            if(cronometro.ativo) {
+                clearInterval(cronometro.interval);
+                document.getElementById('btn-timer-toggle').innerText = "INICIAR";
+                document.getElementById('btn-timer-toggle').className = "bg-green-600 px-6 py-2 rounded-lg font-bold";
+            } else {
+                cronometro.interval = setInterval(() => {
+                    cronometro.tempo--;
+                    if(cronometro.tempo <= 0) {
+                        clearInterval(cronometro.interval);
+                        cronometro.ativo = false;
+                        alert("Tempo esgotado!");
                     }
-                    timerSeconds--;
-                    updateTimerUI();
-                    updatePunishmentTimers();
+                    updateTimerDisplay();
                 }, 1000);
-                btn.innerText = "PAUSAR";
+                document.getElementById('btn-timer-toggle').innerText = "PAUSAR";
+                document.getElementById('btn-timer-toggle').className = "bg-red-600 px-6 py-2 rounded-lg font-bold";
             }
-            isTimerRunning = !isTimerRunning;
+            cronometro.ativo = !cronometro.ativo;
+        };
+
+        window.resetTimer = () => {
+            clearInterval(cronometro.interval);
+            cronometro.tempo = 600;
+            cronometro.ativo = false;
+            updateTimerDisplay();
+            document.getElementById('btn-timer-toggle').innerText = "INICIAR";
+            document.getElementById('btn-timer-toggle').className = "bg-green-600 px-6 py-2 rounded-lg font-bold";
+        };
+
+        function updateTimerDisplay() {
+            const m = Math.floor(cronometro.tempo / 60);
+            const s = cronometro.tempo % 60;
+            document.getElementById('timer').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
         }
 
-        function updateTimerUI() {
-            const mins = Math.floor(timerSeconds / 60);
-            const secs = timerSeconds % 60;
-            document.getElementById('timer-display').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-
-        function configTimer() {
-            const t = prompt("Definir minutos de jogo:", "10");
-            if(t) {
-                initialSeconds = parseInt(t) * 60;
-                timerSeconds = initialSeconds;
-                updateTimerUI();
-            }
-        }
-
-        function addGoal(teamLabel) {
-            const list = teamLabel === 'A' ? teamA : teamB;
-            openModal("Registrar Gol", list, (scorerId) => {
-                // Step 2: Assistencia
-                stats[scorerId].gol++;
-                const assistList = list.filter(p => p.id !== scorerId);
-                openModal("Assistência Obrigatória", assistList, (assisterId) => {
-                    stats[assisterId].ast++;
-                    if(teamLabel === 'A') {
-                        document.getElementById('score-a').innerText = parseInt(document.getElementById('score-a').innerText) + 1;
-                    } else {
-                        document.getElementById('score-b').innerText = parseInt(document.getElementById('score-b').innerText) + 1;
-                    }
-                    closeModal();
-                }, true);
+        function carregarRanking() {
+            const sorted = [...atletas].sort((a, b) => {
+                const aprA = a.partidas ? (a.vitorias / a.partidas) : 0;
+                const aprB = b.partidas ? (b.vitorias / b.partidas) : 0;
+                return aprB - aprA || b.gols - a.gols;
             });
-        }
-
-        function giveCard(playerId, type) {
-            if(type === 'amarelo') {
-                stats[playerId].ca++;
-                // Verifica 2º amarelo
-                const pCA = players.find(p => p.id === playerId);
-                pCA.tempCA = (pCA.tempCA || 0) + 1;
-                if(pCA.tempCA >= 2) {
-                    pCA.tempCA = 0;
-                    punishPlayer(playerId, "2º Amarelo");
-                }
-            } else {
-                stats[playerId].cv++;
-                punishPlayer(playerId, "Vermelho");
-            }
-            renderField();
-            localStorage.setItem('asmeto_stats', JSON.stringify(stats));
-        }
-
-        function punishPlayer(playerId, reason) {
-            const player = players.find(p => p.id === playerId);
-            punishedPlayers.push({ ...player, reason, timeLeft: 90 }); // 90 segundos padrão
-            document.getElementById('punished-container').classList.remove('hidden');
-            renderPunished();
-        }
-
-        function updatePunishmentTimers() {
-            if(punishedPlayers.length === 0) return;
-            punishedPlayers.forEach(p => {
-                p.timeLeft--;
-            });
-            const finished = punishedPlayers.filter(p => p.timeLeft <= 0);
-            if(finished.length > 0) {
-                punishedPlayers = punishedPlayers.filter(p => p.timeLeft > 0);
-                showMsg("Jogador retornou da punição");
-                renderField();
-            }
-            renderPunished();
-        }
-
-        function renderPunished() {
-            const div = document.getElementById('punished-list');
-            div.innerHTML = punishedPlayers.map(p => `
-                <div class="bg-red-50 p-2 rounded flex justify-between items-center text-xs">
-                    <span class="font-bold">${p.name} (${p.reason})</span>
-                    <span class="bg-red-600 text-white px-2 py-1 rounded">${p.timeLeft}s</span>
-                </div>
-            `).join('');
-            if(punishedPlayers.length === 0) document.getElementById('punished-container').classList.add('hidden');
-        }
-
-        // --- Rotação de Vencedores ---
-        function endMatch(winner) {
-            const scoreA = parseInt(document.getElementById('score-a').innerText);
-            const scoreB = parseInt(document.getElementById('score-b').innerText);
-            
-            // Registra games jogados
-            [...teamA, ...teamB].forEach(p => stats[p.id].games++);
-
-            let winningTeam = [];
-            let losingTeam = [];
-
-            if(winner === 'A' || (winner === 'Empate' && scoreA > scoreB)) {
-                winningTeam = teamA;
-                losingTeam = teamB;
-            } else if (winner === 'B') {
-                winningTeam = teamB;
-                losingTeam = teamA;
-            } else {
-                // Caso empate total, critério do sistema ou sorteio para manter um
-                winningTeam = teamA;
-                losingTeam = teamB;
-                showMsg("Empate: Time A mantido por padrão.");
-            }
-
-            // Atribui vitórias
-            winningTeam.forEach(p => {
-                stats[p.id].vit++;
-                p.winsInRow = (p.winsInRow || 0) + 1;
-            });
-            losingTeam.forEach(p => p.winsInRow = 0);
-
-            // Regra de 3 vitórias seguidas
-            const forcedExit = winningTeam.some(p => p.winsInRow >= 3);
-            if(forcedExit) {
-                showMsg("Time atingiu 3 vitórias e saiu da quadra!");
-                waitingList.push(...winningTeam);
-                winningTeam.forEach(p => p.winsInRow = 0);
-                // Próximos dois times da fila entram
-                const perTeam = winningTeam.length;
-                teamA = waitingList.splice(0, perTeam);
-                teamB = waitingList.splice(0, perTeam);
-            } else {
-                // Perdedor vai pro fim da fila
-                waitingList.push(...losingTeam);
-                const perTeam = losingTeam.length;
-                const nextTeam = waitingList.splice(0, perTeam);
-                
-                if(winner === 'A') teamB = nextTeam;
-                else teamA = nextTeam;
-            }
-
-            // Reset Game UI
-            document.getElementById('score-a').innerText = "0";
-            document.getElementById('score-b').innerText = "0";
-            timerSeconds = initialSeconds;
-            updateTimerUI();
-            localStorage.setItem('asmeto_stats', JSON.stringify(stats));
-            renderField();
-            showMsg("Partida encerrada. Próximos!");
-        }
-
-        // --- Ranking ---
-        function renderRanking() {
-            const body = document.getElementById('ranking-body');
-            const sorted = Object.keys(stats).map(id => ({
-                id, 
-                ...stats[id], 
-                name: players.find(p => p.id === id)?.name || 'Ex-Atleta',
-                apr: stats[id].games > 0 ? ((stats[id].vit / stats[id].games) * 100).toFixed(1) : 0
-            })).sort((a, b) => b.gol - a.gol);
-
-            body.innerHTML = sorted.map(s => `
-                <tr class="border-b">
-                    <td class="p-2 font-medium">${s.name}</td>
-                    <td class="p-2 text-center">${s.gol}</td>
-                    <td class="p-2 text-center">${s.ast}</td>
-                    <td class="p-2 text-center">${s.ca}</td>
-                    <td class="p-2 text-center">${s.cv}</td>
-                    <td class="p-2 text-center">${s.vit}</td>
-                    <td class="p-2 text-center">${s.apr}%</td>
+            document.getElementById('ranking-body').innerHTML = sorted.map(a => `
+                <tr>
+                    <td class="p-2 flex items-center gap-2">
+                        <img src="${a.foto || 'https://via.placeholder.com/24'}" class="w-6 h-6 rounded-full bg-gray-200 object-cover">
+                        <span class="text-sm truncate max-w-[100px]">${a.nome}</span>
+                    </td>
+                    <td class="p-2 text-center">${a.gols || 0}</td>
+                    <td class="p-2 text-center">${a.ast || 0}</td>
+                    <td class="p-2 text-center">${a.vitorias || 0}</td>
+                    <td class="p-2 text-center font-bold text-green-600">${a.partidas ? Math.round((a.vitorias/a.partidas)*100) : 0}%</td>
                 </tr>
             `).join('');
         }
 
-        // --- Modais ---
-        let modalCallback = null;
-        function openModal(title, playerList, callback, isStep2 = false) {
-            document.getElementById('event-modal').classList.remove('hidden');
-            document.getElementById('modal-title').innerText = title;
-            const container = isStep2 ? document.getElementById('modal-assist-list') : document.getElementById('modal-player-list');
-            
-            if(!isStep2) {
-                document.getElementById('modal-step-1').classList.remove('hidden');
-                document.getElementById('modal-step-2').classList.add('hidden');
-            } else {
-                document.getElementById('modal-step-1').classList.add('hidden');
-                document.getElementById('modal-step-2').classList.remove('hidden');
-            }
-
-            container.innerHTML = playerList.map(p => `
-                <button onclick="selectModalPlayer('${p.id}')" class="w-full text-left p-3 border rounded-lg hover:bg-indigo-50 flex items-center space-x-3">
-                    <img src="${p.photo}" class="w-8 h-8 rounded-full">
-                    <span class="font-bold">${p.name}</span>
-                </button>
-            `).join('');
-            modalCallback = callback;
-        }
-
-        function selectModalPlayer(id) {
-            if(modalCallback) modalCallback(id);
-        }
-
-        function closeModal() {
-            document.getElementById('event-modal').classList.add('hidden');
-            modalCallback = null;
-        }
-
-        // --- Exportação CSV ---
-        function exportRankingCSV() {
-            const headers = "Atleta,Gols,Assist,CA,CV,Vit,Apr%\n";
-            const rows = Object.keys(stats).map(id => {
-                const s = stats[id];
-                const p = players.find(pl => pl.id === id);
-                const apr = s.games > 0 ? ((s.vit / s.games) * 100).toFixed(1) : 0;
-                return `${p?.name || 'Unknown'},${s.gol},${s.ast},${s.ca},${s.cv},${s.vit},${apr}%`;
-            }).join("\n");
-            
-            downloadCSV("ranking_asmeto.csv", headers + rows);
-        }
-
-        function exportHistoryCSV() {
-            const headers = "ID,Sessão,Data,Atletas\n";
-            const rows = sessions.map(s => `${s.id},${s.name},${s.date},${s.confirmedCount}`).join("\n");
-            downloadCSV("historico_asmeto.csv", headers + rows);
-        }
-
-        function downloadCSV(filename, content) {
-            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
+        window.exportarEstatisticas = () => {
+            let csv = "Nome,Gols,Assistencias,CA,CV,Vitorias,Partidas,Aproveitamento\n";
+            atletas.forEach(a => {
+                const apr = a.partidas ? Math.round((a.vitorias/a.partidas)*100) : 0;
+                csv += `${a.nome},${a.gols},${a.ast},${a.ca},${a.cv},${a.vitorias},${a.partidas},${apr}%\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ranking_asmeto.csv`;
             link.click();
-            document.body.removeChild(link);
-        }
+        };
 
-        function showMsg(msg) {
-            const toast = document.createElement('div');
-            toast.className = "fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm z-50 shadow-2xl animate-bounce";
-            toast.innerText = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
+        window.openModal = () => {
+            const m = document.getElementById('modal-evento');
+            m.classList.remove('opacity-0', 'pointer-events-none');
+            document.body.classList.add('modal-active');
+        };
+        window.closeModal = () => {
+            const m = document.getElementById('modal-evento');
+            m.classList.add('opacity-0', 'pointer-events-none');
+            document.body.classList.remove('modal-active');
+        };
 
-        // Carregar tela inicial
-        renderSessions();
+        window.criarSessao = async () => {
+            const n = document.getElementById('sessao-nome').value;
+            if(!n) return;
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'sessoes'), { nome: n, data: serverTimestamp() });
+            document.getElementById('sessao-nome').value = '';
+        };
+
+        initApp();
+
+        setInterval(() => {
+            if(suspensos.length > 0) {
+                const listaS = document.getElementById('lista-suspensos');
+                if(listaS) {
+                    const html = suspensos.map(s => {
+                        const a = atletas.find(x => x.id === s.id);
+                        const restante = Math.max(0, Math.ceil((s.expira - Date.now()) / 1000));
+                        if(restante <= 0) { removerSuspensao(s.id); return ''; }
+                        return `
+                            <div class="flex justify-between items-center p-2 bg-red-100 rounded border border-red-200">
+                                <span class="text-sm font-bold text-red-700">${a ? a.nome : 'Jogador'}</span>
+                                <span class="text-xs font-mono bg-red-600 text-white px-2 py-1 rounded">${restante}s</span>
+                            </div>
+                        `;
+                    }).join('');
+                    listaS.innerHTML = html;
+                }
+            }
+        }, 1000);
+
     </script>
 </body>
 </html>
