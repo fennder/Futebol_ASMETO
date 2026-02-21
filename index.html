@@ -6,10 +6,9 @@
     <title>ASMETO 2026 - Gestor de Futebol</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .punished { filter: grayscale(1) contrast(1.5); opacity: 0.5; pointer-events: none; }
+        .punished { filter: grayscale(1) contrast(1.2); opacity: 0.5; pointer-events: none; }
         .timer-active { color: #f87171; animation: blink 1s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-        /* Scrollbar personalizada para mobile */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
@@ -17,14 +16,13 @@
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
 
-    <!-- Header -->
     <header class="bg-slate-800 p-4 sticky top-0 z-50 shadow-2xl border-b border-slate-700">
         <div class="max-w-6xl mx-auto flex justify-between items-center">
             <div class="flex items-center gap-2">
                 <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-black">A</div>
                 <h1 class="text-lg font-bold tracking-tighter">ASMETO <span class="text-blue-500">2026</span></h1>
             </div>
-            <div id="active-session-title" class="text-xs font-mono bg-slate-700 px-3 py-1 rounded text-blue-400">Sem Sessão Ativa</div>
+            <div id="active-session-title" class="text-xs font-mono bg-slate-700 px-3 py-1 rounded text-blue-400 uppercase">Sem Sessão Ativa</div>
         </div>
     </header>
 
@@ -41,8 +39,8 @@
         <!-- Tab: Setup -->
         <section id="tab-setup" class="tab-content space-y-4">
             <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">Nova Pelada</h3>
-                <input id="in-session-name" type="text" placeholder="Nome da Pelada (ex: Quarta à Noite)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 mb-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">Configurar Pelada</h3>
+                <input id="in-session-name" type="text" placeholder="Nome da Pelada (ex: Final de Semana)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 mb-3 focus:ring-2 focus:ring-blue-500 outline-none">
                 <div class="grid grid-cols-2 gap-3 mb-4">
                     <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 text-center">
                         <label class="block text-[10px] text-slate-500 mb-1">Jogadores / Time</label>
@@ -53,115 +51,98 @@
                         <input id="in-match-time" type="number" value="10" class="bg-transparent text-xl font-bold text-center w-full outline-none">
                     </div>
                 </div>
-                <button onclick="startNewSession()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-black text-sm shadow-lg shadow-blue-900/20 transition-all">CRIAR SESSÃO</button>
-            </div>
-
-            <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">Histórico Local</h3>
-                <div id="session-history" class="space-y-2 max-h-48 overflow-y-auto pr-2">
-                    <!-- Histórico -->
-                </div>
+                <button onclick="startNewSession()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-black text-sm shadow-lg shadow-blue-900/20 transition-all">INICIAR NOVA SESSÃO</button>
+                <button onclick="clearAllData()" class="w-full mt-4 text-[10px] text-red-400 uppercase font-bold opacity-50 hover:opacity-100">Limpar Todos os Dados (Reset)</button>
             </div>
         </section>
 
         <!-- Tab: Players -->
         <section id="tab-players" class="tab-content hidden space-y-4">
             <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl">
-                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">Cadastro Rápido</h3>
+                <h3 class="text-sm font-bold text-slate-400 mb-4 uppercase">Novo Atleta</h3>
                 <div class="flex flex-col gap-4">
                     <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-slate-700">
                         <video id="webcam" class="w-full h-full object-cover" autoplay playsinline></video>
                         <canvas id="photo-canvas" class="hidden"></canvas>
                         <img id="photo-preview" class="absolute inset-0 w-full h-full object-cover hidden">
                         <div class="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
-                            <button onclick="takeSnapshot()" class="bg-white text-black px-4 py-2 rounded-full text-xs font-bold shadow-xl">CAPTURAR FOTO</button>
+                            <button onclick="takeSnapshot()" class="bg-white text-black px-4 py-2 rounded-full text-xs font-bold shadow-xl">TIRAR FOTO</button>
                         </div>
                     </div>
                     <input id="in-player-name" type="text" placeholder="Nome do Jogador" class="bg-slate-900 border border-slate-700 rounded-xl p-4 outline-none">
-                    <button onclick="registerPlayer()" class="w-full bg-green-600 py-4 rounded-xl font-black text-sm">ADICIONAR À LISTA</button>
+                    <button onclick="registerPlayer()" class="w-full bg-green-600 py-4 rounded-xl font-black text-sm">CADASTRAR E PRIORIZAR</button>
                 </div>
             </div>
 
             <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-bold text-slate-400 uppercase">Confirmados</h3>
-                    <button onclick="runAutomaticDraw()" class="text-[10px] bg-blue-600 px-3 py-1 rounded-full font-bold">SORTEAR AGORA</button>
+                    <h3 class="text-sm font-bold text-slate-400 uppercase">Lista de Presença</h3>
+                    <button onclick="runAutomaticDraw()" class="text-[10px] bg-blue-600 px-3 py-1 rounded-full font-bold">GERAR SORTEIO</button>
                 </div>
-                <div id="roster-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <!-- Jogadores cadastrados -->
-                </div>
+                <div id="roster-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
             </div>
         </section>
 
         <!-- Tab: Match -->
         <section id="tab-match" class="tab-content hidden space-y-4">
-            <!-- Scoreboard -->
             <div class="bg-slate-800 p-6 rounded-3xl border-2 border-slate-700 shadow-2xl relative overflow-hidden">
-                <div class="absolute top-0 left-1/2 -translate-x-1/2 bg-slate-700 px-4 py-1 rounded-b-xl text-[10px] font-bold text-slate-400">PARTIDA EM CURSO</div>
-                
                 <div class="flex justify-between items-center mt-4">
                     <div class="text-center flex-1">
-                        <div id="match-team-a-name" class="text-xs font-bold text-blue-400 mb-2">TIME A</div>
+                        <div class="text-xs font-bold text-blue-400 mb-2">TIME A</div>
                         <div id="match-score-a" class="text-6xl font-black tabular-nums">0</div>
-                        <div id="match-wins-a" class="text-[10px] text-slate-500 mt-2">Vitorias: 0/3</div>
+                        <div id="match-wins-a" class="text-[10px] text-slate-500 mt-2 uppercase font-bold tracking-widest">Vitórias: 0/3</div>
                     </div>
                     
                     <div class="px-4 text-center">
                         <div id="match-timer" class="text-4xl font-mono font-bold text-white mb-2">10:00</div>
-                        <button id="btn-play-pause" onclick="toggleTimer()" class="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center shadow-xl shadow-white/10 mx-auto">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <button id="btn-play-pause" onclick="toggleTimer()" class="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center shadow-xl mx-auto">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path id="timer-icon" d="M8 5v14l11-7z"/></svg>
                         </button>
                     </div>
 
                     <div class="text-center flex-1">
-                        <div id="match-team-b-name" class="text-xs font-bold text-red-400 mb-2">TIME B</div>
+                        <div class="text-xs font-bold text-red-400 mb-2">TIME B</div>
                         <div id="match-score-b" class="text-6xl font-black tabular-nums">0</div>
-                        <div id="match-wins-b" class="text-[10px] text-slate-500 mt-2">Vitorias: 0/3</div>
+                        <div id="match-wins-b" class="text-[10px] text-slate-500 mt-2 uppercase font-bold tracking-widest">Vitórias: 0/3</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Field Teams -->
             <div class="grid grid-cols-2 gap-3">
                 <div class="bg-blue-900/20 p-3 rounded-2xl border border-blue-500/30">
-                    <h4 class="text-[10px] font-bold text-blue-400 mb-2 uppercase">Escalação A</h4>
+                    <h4 class="text-[10px] font-bold text-blue-400 mb-2 uppercase">Campo A</h4>
                     <div id="list-team-a" class="space-y-2"></div>
                 </div>
                 <div class="bg-red-900/20 p-3 rounded-2xl border border-red-500/30">
-                    <h4 class="text-[10px] font-bold text-red-400 mb-2 uppercase text-right">Escalação B</h4>
+                    <h4 class="text-[10px] font-bold text-red-400 mb-2 uppercase text-right">Campo B</h4>
                     <div id="list-team-b" class="space-y-2"></div>
                 </div>
             </div>
 
-            <!-- Fila de Espera com Prioridade -->
             <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase">Fila de Espera</h3>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase">Próximos na Fila</h3>
                     <span id="wait-count" class="bg-slate-700 text-slate-100 text-[10px] px-2 py-0.5 rounded-full">0</span>
                 </div>
                 <div id="list-waiting" class="flex flex-wrap gap-2"></div>
             </div>
 
-            <!-- Punidos (VM) -->
             <div id="punished-container" class="bg-red-600/10 p-4 rounded-2xl border border-red-600/40 hidden">
-                <h3 class="text-[10px] font-black text-red-500 uppercase mb-3 tracking-widest">Suspensão Temporária (VM)</h3>
+                <h3 class="text-[10px] font-black text-red-500 uppercase mb-3 tracking-widest">Área de Suspensão (VM)</h3>
                 <div id="list-punished" class="space-y-2"></div>
             </div>
 
-            <!-- Ações de Partida -->
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="confirmWinner('A')" class="bg-blue-600 py-4 rounded-xl font-black text-sm shadow-lg shadow-blue-900/30">VENCEDOR A</button>
                 <button onclick="confirmWinner('B')" class="bg-red-600 py-4 rounded-xl font-black text-sm shadow-lg shadow-red-900/30">VENCEDOR B</button>
             </div>
-            <button onclick="confirmWinner('Draw')" class="w-full bg-slate-700 py-3 rounded-xl font-bold text-xs">EMPATE (PÊNALTIS/MATA-MATA)</button>
         </section>
 
         <!-- Tab: Rank -->
         <section id="tab-rank" class="tab-content hidden space-y-4">
             <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-bold uppercase text-slate-400">Estatísticas Gerais</h3>
-                    <button onclick="downloadCSV()" class="text-[10px] text-blue-400 font-bold border border-blue-400/30 px-3 py-1 rounded-lg">EXPORTAR CSV</button>
+                    <h3 class="text-sm font-bold uppercase text-slate-400">Tabela de Classificação</h3>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
@@ -170,15 +151,12 @@
                                 <th class="py-2">ATLETA</th>
                                 <th class="py-2 text-center">G</th>
                                 <th class="py-2 text-center">A</th>
-                                <th class="py-2 text-center">CA</th>
-                                <th class="py-2 text-center">CV</th>
                                 <th class="py-2 text-center">V</th>
+                                <th class="py-2 text-center">J</th>
                                 <th class="py-2 text-center">APR%</th>
                             </tr>
                         </thead>
-                        <tbody id="rank-table-body">
-                            <!-- Estatísticas -->
-                        </tbody>
+                        <tbody id="rank-table-body"></tbody>
                     </table>
                 </div>
             </div>
@@ -186,27 +164,22 @@
 
     </main>
 
-    <!-- Modal: Gols e Cartões -->
+    <!-- Modal para Eventos -->
     <div id="modal-event" class="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 hidden">
         <div class="bg-slate-800 w-full max-w-sm rounded-3xl border border-slate-700 p-6 shadow-2xl">
-            <h2 id="modal-title" class="text-xl font-black mb-1">REGISTRAR GOL</h2>
-            <p id="modal-desc" class="text-xs text-slate-500 mb-6 uppercase tracking-wider">Selecione o jogador responsável</p>
-            
-            <div id="modal-player-list" class="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
-                <!-- Jogadores para seleção -->
-            </div>
-            
-            <button onclick="closeModal()" class="w-full mt-6 py-3 text-slate-400 font-bold text-xs uppercase">Cancelar</button>
+            <h2 id="modal-title" class="text-xl font-black mb-1">REGISTAR</h2>
+            <p id="modal-desc" class="text-xs text-slate-500 mb-6 uppercase tracking-wider">Ação necessária</p>
+            <div id="modal-player-list" class="space-y-2 max-h-[50vh] overflow-y-auto pr-2"></div>
+            <button onclick="closeModal()" class="w-full mt-6 py-3 text-slate-400 font-bold text-xs uppercase">Fechar</button>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURAÇÕES E ESTADO ---
+        // --- ESTADO GLOBAL COM PERSISTÊNCIA ---
         let db = {
-            session: null,
+            session: JSON.parse(localStorage.getItem('asmeto_session')) || null,
             players: JSON.parse(localStorage.getItem('asmeto_players')) || [],
-            history: JSON.parse(localStorage.getItem('asmeto_history')) || [],
-            currentMatch: {
+            currentMatch: JSON.parse(localStorage.getItem('asmeto_match_state')) || {
                 teamA: [], teamB: [], waiting: [], punished: [],
                 scoreA: 0, scoreB: 0, winsA: 0, winsB: 0,
                 timeLeft: 600, isRunning: false
@@ -215,19 +188,37 @@
 
         let timerInt = null;
         let lastPhoto = null;
-        const VM_TIME = 90; // Segundos de suspensão
+        const VM_TIME = 90;
 
-        // --- INICIALIZAÇÃO ---
         window.onload = () => {
             initCamera();
-            renderAll();
+            if(db.session) {
+                document.getElementById('active-session-title').innerText = db.session.name;
+                renderAll();
+                // Se o timer estava a correr, pausamos por segurança
+                db.currentMatch.isRunning = false;
+                saveData();
+            }
         };
 
         function initCamera() {
             const video = document.getElementById('webcam');
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
                 .then(stream => video.srcObject = stream)
-                .catch(err => console.error("Erro câmera:", err));
+                .catch(err => console.warn("Câmara inacessível"));
+        }
+
+        function saveData() {
+            localStorage.setItem('asmeto_session', JSON.stringify(db.session));
+            localStorage.setItem('asmeto_players', JSON.stringify(db.players));
+            localStorage.setItem('asmeto_match_state', JSON.stringify(db.currentMatch));
+        }
+
+        function clearAllData() {
+            if(confirm("Deseja apagar TUDO? Jogadores e histórico serão perdidos.")) {
+                localStorage.clear();
+                location.reload();
+            }
         }
 
         // --- NAVEGAÇÃO ---
@@ -240,20 +231,18 @@
                     b.classList.add('bg-blue-600');
                 }
             });
-            if(tab === 'rank') renderRanking();
         }
 
-        // --- GESTÃO DE SESSÃO ---
+        // --- SESSÃO E SORTEIO ---
         function startNewSession() {
             const name = document.getElementById('in-session-name').value;
-            if(!name) return alert("Insira um nome para a sessão");
+            if(!name) return;
             
             db.session = {
                 id: Date.now(),
                 name: name,
                 teamSize: parseInt(document.getElementById('in-team-size').value),
-                matchMinutes: parseInt(document.getElementById('in-match-time').value),
-                date: new Date().toLocaleDateString()
+                matchMinutes: parseInt(document.getElementById('in-match-time').value)
             };
 
             db.currentMatch = {
@@ -263,20 +252,19 @@
                 isRunning: false
             };
 
-            document.getElementById('active-session-title').innerText = name.toUpperCase();
+            document.getElementById('active-session-title').innerText = name;
             saveData();
             showTab('players');
             renderAll();
         }
 
-        // --- GESTÃO DE ATLETAS ---
         function takeSnapshot() {
             const video = document.getElementById('webcam');
             const canvas = document.getElementById('photo-canvas');
             const preview = document.getElementById('photo-preview');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
+            canvas.width = 300;
+            canvas.height = 225;
+            canvas.getContext('2d').drawImage(video, 0, 0, 300, 225);
             lastPhoto = canvas.toDataURL('image/webp');
             preview.src = lastPhoto;
             preview.classList.remove('hidden');
@@ -284,24 +272,23 @@
 
         function registerPlayer() {
             const name = document.getElementById('in-player-name').value;
-            if(!name) return alert("Nome obrigatório");
+            if(!name) return;
 
             const player = {
                 id: 'P' + Date.now(),
                 name: name,
                 photo: lastPhoto || 'https://via.placeholder.com/150',
-                present: false,
-                stats: { g: 0, a: 0, ca: 0, cv: 0, v: 0, matches: 0 }
+                present: true,
+                stats: { g: 0, a: 0, v: 0, j: 0 }
             };
 
             db.players.push(player);
             
-            // Regra de Negócio: Quem é cadastrado após o sorteio entra na frente da fila
+            // Regra: Entrar no TOPO da fila se já houver jogo
             if(db.currentMatch.teamA.length > 0) {
                 db.currentMatch.waiting.unshift(player.id);
             }
 
-            // Limpeza
             document.getElementById('in-player-name').value = "";
             document.getElementById('photo-preview').classList.add('hidden');
             lastPhoto = null;
@@ -310,19 +297,10 @@
             renderAll();
         }
 
-        function togglePresence(id) {
-            const p = db.players.find(x => x.id === id);
-            if(p) p.present = !p.present;
-            saveData();
-            renderAll();
-        }
-
-        // --- SORTEIO ---
         function runAutomaticDraw() {
             const present = db.players.filter(p => p.present);
-            if(present.length < db.session.teamSize * 2) return alert("Atletas insuficientes!");
+            if(present.length < db.session.teamSize * 2) return;
 
-            // Ordem de cadastro (id)
             const sorted = [...present].sort((a,b) => a.id.localeCompare(b.id));
             
             db.currentMatch.teamA = sorted.slice(0, db.session.teamSize).map(p => p.id);
@@ -334,27 +312,30 @@
             renderAll();
         }
 
-        // --- LÓGICA DE JOGO ---
+        // --- JOGO ---
         function toggleTimer() {
+            const icon = document.getElementById('timer-icon');
             if(db.currentMatch.isRunning) {
                 clearInterval(timerInt);
-                document.getElementById('btn-play-pause').innerHTML = `<svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+                icon.setAttribute('d', 'M8 5v14l11-7z');
             } else {
                 timerInt = setInterval(tick, 1000);
-                document.getElementById('btn-play-pause').innerHTML = `<svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+                icon.setAttribute('d', 'M6 19h4V5H6v14zm8-14v14h4V5h-4z');
             }
             db.currentMatch.isRunning = !db.currentMatch.isRunning;
+            saveData();
         }
 
         function tick() {
             if(db.currentMatch.timeLeft > 0) {
                 db.currentMatch.timeLeft--;
-                renderTimer();
                 
-                // Processar Punidos
                 db.currentMatch.punished.forEach(p => {
                     if(p.seconds > 0) p.seconds--;
                 });
+
+                if(db.currentMatch.timeLeft % 5 === 0) saveData(); // Auto-save a cada 5s
+                renderTimer();
                 renderPunished();
             } else {
                 toggleTimer();
@@ -366,154 +347,92 @@
             const s = db.currentMatch.timeLeft % 60;
             const el = document.getElementById('match-timer');
             el.innerText = `${m}:${s.toString().padStart(2,'0')}`;
-            if(db.currentMatch.timeLeft < 60) el.classList.add('timer-active');
-            else el.classList.remove('timer-active');
+            db.currentMatch.timeLeft < 60 ? el.classList.add('timer-active') : el.classList.remove('timer-active');
         }
 
-        function openEventModal(type, targetPlayerId) {
+        function openEventModal(type, pid) {
             const modal = document.getElementById('modal-event');
-            const title = document.getElementById('modal-title');
             const list = document.getElementById('modal-player-list');
+            const title = document.getElementById('modal-title');
             modal.classList.remove('hidden');
             list.innerHTML = "";
 
             if(type === 'goal') {
-                title.innerText = "QUEM FEZ O GOL?";
-                const team = db.currentMatch.teamA.includes(targetPlayerId) ? db.currentMatch.teamA : db.currentMatch.teamB;
-                team.forEach(pid => {
-                    const p = db.players.find(x => x.id === pid);
+                title.innerText = "GOLO DE QUEM?";
+                const team = db.currentMatch.teamA.includes(pid) ? db.currentMatch.teamA : db.currentMatch.teamB;
+                team.forEach(id => {
+                    const p = db.players.find(x => x.id === id);
                     const btn = document.createElement('button');
-                    btn.className = "w-full bg-slate-900 p-4 rounded-xl flex items-center gap-3 hover:bg-slate-700 transition";
-                    btn.innerHTML = `<img src="${p.photo}" class="w-8 h-8 rounded-full object-cover"> <span class="font-bold">${p.name}</span>`;
-                    btn.onclick = () => registerGoal(pid, targetPlayerId); // targetPlayerId aqui pode servir para assistência no fluxo
+                    btn.className = "w-full bg-slate-900 p-3 rounded-xl flex items-center gap-3";
+                    btn.innerHTML = `<img src="${p.photo}" class="w-8 h-8 rounded-full object-cover"> <span class="font-bold text-sm">${p.name}</span>`;
+                    btn.onclick = () => registerGoal(id);
                     list.appendChild(btn);
                 });
             } else if (type === 'card_y') {
-                applyCard(targetPlayerId, 'Y');
+                const p = db.players.find(x => x.id === pid);
+                if(!db.currentMatch.punished.some(x => x.id === pid)) {
+                    db.currentMatch.punished.push({ id: pid, seconds: VM_TIME });
+                }
                 closeModal();
-            } else if (type === 'card_r') {
-                applyCard(targetPlayerId, 'R');
-                closeModal();
+                renderAll();
+                saveData();
             }
         }
 
-        function registerGoal(scorerId, referenceId) {
+        function registerGoal(scorerId) {
             const p = db.players.find(x => x.id === scorerId);
             p.stats.g++;
-            if(db.currentMatch.teamA.includes(scorerId)) db.currentMatch.scoreA++;
-            else db.currentMatch.scoreB++;
+            db.currentMatch.teamA.includes(scorerId) ? db.currentMatch.scoreA++ : db.currentMatch.scoreB++;
             
             closeModal();
             renderAll();
             saveData();
-            
-            // Fluxo de assistência obrigatória
+
+            // Assistência
             setTimeout(() => {
                 const modal = document.getElementById('modal-event');
-                const title = document.getElementById('modal-title');
                 const list = document.getElementById('modal-player-list');
+                const title = document.getElementById('modal-title');
                 modal.classList.remove('hidden');
                 title.innerText = "ASSISTÊNCIA?";
                 list.innerHTML = "";
                 
                 const team = db.currentMatch.teamA.includes(scorerId) ? db.currentMatch.teamA : db.currentMatch.teamB;
-                team.filter(id => id !== scorerId).forEach(pid => {
-                    const ap = db.players.find(x => x.id === pid);
+                team.filter(id => id !== scorerId).forEach(id => {
+                    const ap = db.players.find(x => x.id === id);
                     const btn = document.createElement('button');
-                    btn.className = "w-full bg-slate-900 p-4 rounded-xl flex items-center gap-3";
-                    btn.innerHTML = `<img src="${ap.photo}" class="w-8 h-8 rounded-full"> <span>${ap.name}</span>`;
+                    btn.className = "w-full bg-slate-900 p-3 rounded-xl flex items-center gap-3";
+                    btn.innerHTML = `<img src="${ap.photo}" class="w-8 h-8 rounded-full"> <span class="text-sm">${ap.name}</span>`;
                     btn.onclick = () => { ap.stats.a++; closeModal(); renderAll(); saveData(); };
                     list.appendChild(btn);
                 });
                 const none = document.createElement('button');
-                none.className = "w-full border-2 border-dashed border-slate-700 p-4 rounded-xl text-slate-500 font-bold";
-                none.innerText = "SEM ASSISTÊNCIA";
+                none.className = "w-full border border-slate-700 p-3 rounded-xl text-slate-500 text-xs font-bold";
+                none.innerText = "GOLO INDIVIDUAL";
                 none.onclick = closeModal;
                 list.appendChild(none);
             }, 300);
         }
 
-        function applyCard(pid, type) {
-            const p = db.players.find(x => x.id === pid);
-            if(type === 'Y') {
-                p.stats.ca++;
-                if(p.stats.ca % 2 === 0) suspend(pid);
-            } else {
-                p.stats.cv++;
-                suspend(pid);
-            }
-            renderAll();
-            saveData();
-        }
-
-        function suspend(pid) {
-            if(!db.currentMatch.punished.find(x => x.id === pid)) {
-                db.currentMatch.punished.push({ id: pid, seconds: VM_TIME });
-            }
-            renderAll();
-        }
-
-        function quickSub(pid) {
-            if(db.currentMatch.waiting.length === 0) return alert("Sem reservas!");
-            
-            // Não pode substituir se estiver punido
-            if(db.currentMatch.punished.find(x => x.id === pid && x.seconds > 0)) {
-                return alert("Jogador em suspensão não pode ser substituído agora!");
-            }
-
-            let team = db.currentMatch.teamA.includes(pid) ? db.currentMatch.teamA : db.currentMatch.teamB;
-            const idx = team.indexOf(pid);
-            const next = db.currentMatch.waiting.shift();
-            
-            // Atualiza estatística de partida jogada
-            db.players.find(x => x.id === pid).stats.matches++;
-            
-            team[idx] = next;
-            db.currentMatch.waiting.push(pid);
-            
-            renderAll();
-            saveData();
-        }
-
         function confirmWinner(winner) {
-            // Registrar participação de quem está em campo
             [...db.currentMatch.teamA, ...db.currentMatch.teamB].forEach(pid => {
-                db.players.find(x => x.id === pid).stats.matches++;
+                db.players.find(x => x.id === pid).stats.j++;
             });
 
             if(winner === 'A') {
                 db.currentMatch.winsA++;
                 db.currentMatch.winsB = 0;
-                [...db.currentMatch.teamA].forEach(id => db.players.find(x => x.id === id).stats.v++);
-                
-                // Sai o perdedor B
+                db.currentMatch.teamA.forEach(id => db.players.find(x => x.id === id).stats.v++);
                 rotateOut('B');
-
-                // Regra: se venceu 3, sai obrigatoriamente
-                if(db.currentMatch.winsA >= 3) {
-                    rotateOut('A');
-                    db.currentMatch.winsA = 0;
-                }
-            } else if (winner === 'B') {
+                if(db.currentMatch.winsA >= 3) { rotateOut('A'); db.currentMatch.winsA = 0; }
+            } else {
                 db.currentMatch.winsB++;
                 db.currentMatch.winsA = 0;
-                [...db.currentMatch.teamB].forEach(id => db.players.find(x => x.id === id).stats.v++);
-
+                db.currentMatch.teamB.forEach(id => db.players.find(x => x.id === id).stats.v++);
                 rotateOut('A');
-
-                if(db.currentMatch.winsB >= 3) {
-                    rotateOut('B');
-                    db.currentMatch.winsB = 0;
-                }
-            } else {
-                // Empate - Ambos saem para renovar o campo conforme costume
-                rotateOut('A');
-                rotateOut('B');
-                db.currentMatch.winsA = 0;
-                db.currentMatch.winsB = 0;
+                if(db.currentMatch.winsB >= 3) { rotateOut('B'); db.currentMatch.winsB = 0; }
             }
 
-            // Reset de Jogo
             db.currentMatch.scoreA = 0;
             db.currentMatch.scoreB = 0;
             db.currentMatch.timeLeft = db.session.matchMinutes * 60;
@@ -527,62 +446,63 @@
             const team = side === 'A' ? db.currentMatch.teamA : db.currentMatch.teamB;
             db.currentMatch.waiting.push(...team);
             const next = db.currentMatch.waiting.splice(0, db.session.teamSize);
-            if(side === 'A') db.currentMatch.teamA = next;
-            else db.currentMatch.teamB = next;
+            side === 'A' ? db.currentMatch.teamA = next : db.currentMatch.teamB = next;
         }
 
-        // --- RENDERIZAÇÃO ---
+        // --- RENDERIZADORES ---
         function renderAll() {
             renderRoster();
             renderTeams();
             renderWaiting();
             renderPunished();
             renderTimer();
-            renderRanking();
+            renderRank();
             
             document.getElementById('match-score-a').innerText = db.currentMatch.scoreA;
             document.getElementById('match-score-b').innerText = db.currentMatch.scoreB;
-            document.getElementById('match-wins-a').innerText = `VITORIAS: ${db.currentMatch.winsA}/3`;
-            document.getElementById('match-wins-b').innerText = `VITORIAS: ${db.currentMatch.winsB}/3`;
+            document.getElementById('match-wins-a').innerText = `VITÓRIAS: ${db.currentMatch.winsA}/3`;
+            document.getElementById('match-wins-b').innerText = `VITÓRIAS: ${db.currentMatch.winsB}/3`;
         }
 
         function renderRoster() {
             const list = document.getElementById('roster-list');
             list.innerHTML = db.players.map(p => `
-                <div class="bg-slate-900 p-3 rounded-xl flex items-center justify-between border ${p.present ? 'border-green-500/50' : 'border-slate-700'}">
+                <div class="bg-slate-900 p-3 rounded-xl flex items-center justify-between border ${p.present ? 'border-green-500/30' : 'border-slate-700'}">
                     <div class="flex items-center gap-3">
-                        <img src="${p.photo}" class="w-10 h-10 rounded-full object-cover">
-                        <div>
-                            <p class="text-xs font-bold">${p.name}</p>
-                            <p class="text-[8px] text-slate-500">G: ${p.stats.g} | V: ${p.stats.v}</p>
-                        </div>
+                        <img src="${p.photo}" class="w-8 h-8 rounded-full object-cover">
+                        <span class="text-xs font-bold">${p.name}</span>
                     </div>
-                    <input type="checkbox" ${p.present ? 'checked' : ''} onchange="togglePresence('${p.id}')" class="w-5 h-5 rounded bg-slate-800 border-slate-600">
+                    <input type="checkbox" ${p.present ? 'checked' : ''} onchange="toggleP('${p.id}')" class="w-4 h-4">
                 </div>
             `).join('');
         }
 
+        function toggleP(id) {
+            const p = db.players.find(x => x.id === id);
+            p.present = !p.present;
+            saveData();
+            renderRoster();
+        }
+
         function renderTeams() {
-            const build = (pid, side) => {
+            const build = (pid) => {
                 const p = db.players.find(x => x.id === pid);
-                const isP = db.currentMatch.punished.find(x => x.id === pid && x.seconds > 0);
+                const isP = db.currentMatch.punished.some(x => x.id === pid && x.seconds > 0);
                 return `
-                    <div class="bg-slate-900 p-2 rounded-xl flex flex-col gap-2 border border-slate-800 ${isP ? 'punished' : ''}">
-                        <div class="flex items-center gap-2 ${side === 'B' ? 'flex-row-reverse' : ''}">
-                            <img src="${p.photo}" class="w-8 h-8 rounded-lg object-cover">
-                            <span class="text-[10px] font-black truncate">${p.name.split(' ')[0]}</span>
+                    <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 ${isP ? 'punished' : ''}">
+                        <div class="flex items-center gap-2 mb-2">
+                            <img src="${p.photo}" class="w-6 h-6 rounded object-cover">
+                            <span class="text-[9px] font-bold truncate">${p.name}</span>
                         </div>
-                        <div class="flex justify-between gap-1">
-                            <button onclick="openEventModal('goal', '${pid}')" class="flex-1 bg-green-600 rounded text-[9px] py-1 font-bold">GOL</button>
-                            <button onclick="openEventModal('card_y', '${pid}')" class="flex-1 bg-yellow-500 rounded text-[9px] py-1 font-bold text-black">CA</button>
-                            <button onclick="openEventModal('card_r', '${pid}')" class="flex-1 bg-red-600 rounded text-[9px] py-1 font-bold">CV</button>
-                            <button onclick="quickSub('${pid}')" class="bg-slate-700 px-2 rounded text-[9px]">⇅</button>
+                        <div class="flex gap-1">
+                            <button onclick="openEventModal('goal', '${pid}')" class="flex-1 bg-green-600 text-[8px] py-1 rounded font-bold">GOL</button>
+                            <button onclick="openEventModal('card_y', '${pid}')" class="flex-1 bg-yellow-500 text-[8px] py-1 rounded font-bold text-black">VM</button>
                         </div>
                     </div>
                 `;
             };
-            document.getElementById('list-team-a').innerHTML = db.currentMatch.teamA.map(id => build(id, 'A')).join('');
-            document.getElementById('list-team-b').innerHTML = db.currentMatch.teamB.map(id => build(id, 'B')).join('');
+            document.getElementById('list-team-a').innerHTML = db.currentMatch.teamA.map(build).join('');
+            document.getElementById('list-team-b').innerHTML = db.currentMatch.teamB.map(build).join('');
         }
 
         function renderWaiting() {
@@ -590,12 +510,7 @@
             document.getElementById('wait-count').innerText = db.currentMatch.waiting.length;
             list.innerHTML = db.currentMatch.waiting.map(id => {
                 const p = db.players.find(x => x.id === id);
-                return `
-                    <div class="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-full flex items-center gap-2">
-                        <span class="text-[10px] font-bold">${p.name.split(' ')[0]}</span>
-                        <button onclick="db.currentMatch.waiting = db.currentMatch.waiting.filter(x => x !== '${id}'); renderAll(); saveData();" class="text-red-500 font-black text-xs">×</button>
-                    </div>
-                `;
+                return `<div class="bg-slate-900 border border-slate-700 px-3 py-1 rounded-full text-[10px] font-bold">${p.name.split(' ')[0]}</div>`;
             }).join('');
         }
 
@@ -608,63 +523,29 @@
                 container.classList.remove('hidden');
                 list.innerHTML = active.map(p => {
                     const player = db.players.find(x => x.id === p.id);
-                    return `
-                        <div class="flex justify-between items-center bg-black/40 p-2 rounded-lg border-l-4 border-red-500">
-                            <span class="text-[10px] font-bold">${player.name}</span>
-                            <span class="text-xs font-mono text-red-500 font-black">${p.seconds}s</span>
-                        </div>
-                    `;
+                    return `<div class="flex justify-between text-[10px] font-bold bg-black/20 p-2 rounded"><span>${player.name}</span><span class="text-red-500">${p.seconds}s</span></div>`;
                 }).join('');
             } else {
                 container.classList.add('hidden');
             }
         }
 
-        function renderRanking() {
+        function renderRank() {
             const body = document.getElementById('rank-table-body');
-            const sorted = [...db.players].sort((a,b) => {
-                const aprA = a.stats.matches ? a.stats.v / a.stats.matches : 0;
-                const aprB = b.stats.matches ? b.stats.v / b.stats.matches : 0;
-                return aprB - aprA || b.stats.g - a.stats.g;
-            });
-
+            const sorted = [...db.players].sort((a,b) => b.stats.v - a.stats.v || b.stats.g - a.stats.g);
             body.innerHTML = sorted.map(p => `
-                <tr class="border-b border-slate-800 hover:bg-slate-800/40">
-                    <td class="py-3 flex items-center gap-2">
-                        <img src="${p.photo}" class="w-6 h-6 rounded-full object-cover">
-                        <span class="font-bold">${p.name}</span>
-                    </td>
-                    <td class="text-center text-green-500 font-bold">${p.stats.g}</td>
-                    <td class="text-center text-blue-400">${p.stats.a}</td>
-                    <td class="text-center text-yellow-500">${p.stats.ca}</td>
-                    <td class="text-center text-red-500">${p.stats.cv}</td>
-                    <td class="text-center">${p.stats.v}</td>
-                    <td class="text-center font-mono text-slate-400">${p.stats.matches ? ((p.stats.v/p.stats.matches)*100).toFixed(0) : 0}%</td>
+                <tr class="border-b border-slate-800">
+                    <td class="py-2 flex items-center gap-2"><img src="${p.photo}" class="w-5 h-5 rounded-full object-cover"><span>${p.name}</span></td>
+                    <td class="text-center font-bold text-green-500">${p.stats.g}</td>
+                    <td class="text-center">${p.stats.a}</td>
+                    <td class="text-center font-bold">${p.stats.v}</td>
+                    <td class="text-center">${p.stats.j}</td>
+                    <td class="text-center text-slate-400">${p.stats.j ? ((p.stats.v/p.stats.j)*100).toFixed(0) : 0}%</td>
                 </tr>
             `).join('');
         }
 
-        // --- UTILITÁRIOS ---
         function closeModal() { document.getElementById('modal-event').classList.add('hidden'); }
-
-        function saveData() {
-            localStorage.setItem('asmeto_players', JSON.stringify(db.players));
-            localStorage.setItem('asmeto_history', JSON.stringify(db.history));
-        }
-
-        function downloadCSV() {
-            let csv = "Atleta;Gols;Assist;CA;CV;Vitorias;Matches;Aproveitamento\n";
-            db.players.forEach(p => {
-                const apr = p.stats.matches ? (p.stats.v / p.stats.matches).toFixed(2) : 0;
-                csv += `${p.name};${p.stats.g};${p.stats.a};${p.stats.ca};${p.stats.cv};${p.stats.v};${p.stats.matches};${apr}\n`;
-            });
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `ranking_asmeto_${Date.now()}.csv`;
-            a.click();
-        }
     </script>
 </body>
 </html>
