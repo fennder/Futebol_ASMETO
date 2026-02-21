@@ -5,720 +5,705 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASMETO 2026 - Gestor de Futebol</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .font-black-italic { font-weight: 900; font-style: italic; }
-        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .card-red-pulse { animation: pulseRed 2s infinite; }
-        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .bg-pitch { background-color: #2d5a27; }
+        .card-player { transition: all 0.2s; }
+        .card-player:active { transform: scale(0.98); }
+        .suspended { filter: grayscale(1); opacity: 0.6; border: 2px solid #ef4444 !important; }
+        .video-container { width: 100%; max-width: 320px; border-radius: 8px; overflow: hidden; }
+        #camera-preview { width: 100%; transform: scaleX(-1); }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
-    <div id="app" class="min-h-screen pb-12">
-        <!-- O conteúdo será injetado pelo JavaScript -->
+<body class="pb-20">
+
+    <!-- Navegação Superior -->
+    <nav class="bg-indigo-700 text-white p-4 shadow-lg sticky top-0 z-40">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-tighter">ASMETO 2026</h1>
+            <div id="nav-status" class="text-sm font-medium bg-indigo-800 px-3 py-1 rounded-full">
+                Sessão: <span id="current-session-name">Nenhuma</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Container Principal -->
+    <main class="container mx-auto p-4 max-w-4xl">
+
+        <!-- Menu de Abas -->
+        <div class="flex space-x-2 mb-6 overflow-x-auto pb-2">
+            <button onclick="showTab('tab-sessao')" class="tab-btn active bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Sessão</button>
+            <button onclick="showTab('tab-atletas')" class="tab-btn bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold border">Atletas</button>
+            <button onclick="showTab('tab-jogo')" class="tab-btn bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold border">Jogo</button>
+            <button onclick="showTab('tab-ranking')" class="tab-btn bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold border">Ranking</button>
+        </div>
+
+        <!-- ABA 1: GESTÃO DE SESSÃO -->
+        <section id="tab-sessao" class="tab-content">
+            <div class="bg-white p-6 rounded-xl shadow-sm mb-6">
+                <h2 class="text-lg font-bold mb-4">Nova Sessão / Histórico</h2>
+                <div class="flex flex-col gap-4">
+                    <input type="text" id="session-name-input" placeholder="Ex: Pelada de Quarta" class="p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <button onclick="createSession()" class="bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition">CRIAR SESSÃO</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <h3 class="font-bold mb-4 flex justify-between items-center">
+                    Histórico Local
+                    <button onclick="exportHistoryCSV()" class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Baixar CSV</button>
+                </h3>
+                <div id="history-list" class="space-y-3">
+                    <p class="text-gray-500 text-sm text-center">Nenhuma sessão registrada.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 2: ATLETAS E PRESENÇA -->
+        <section id="tab-atletas" class="tab-content hidden">
+            <div class="bg-white p-6 rounded-xl shadow-sm mb-6">
+                <h2 class="text-lg font-bold mb-4">Cadastro de Atleta</h2>
+                <div class="space-y-4">
+                    <div class="flex flex-col items-center">
+                        <div class="video-container bg-black aspect-video mb-2 flex items-center justify-center relative">
+                            <video id="camera-preview" autoplay playsinline class="hidden"></video>
+                            <canvas id="photo-canvas" class="hidden"></canvas>
+                            <img id="photo-preview" src="" class="hidden w-full h-full object-cover">
+                            <div id="camera-placeholder" class="text-white text-xs text-center p-4">Câmera desativada</div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="btn-start-camera" onclick="startCamera()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">Ligar Câmera</button>
+                            <button id="btn-capture" onclick="capturePhoto()" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-medium hidden">Tirar Foto</button>
+                        </div>
+                    </div>
+                    <input type="text" id="player-name-input" placeholder="Nome Completo do Atleta" class="w-full p-3 border rounded-lg">
+                    <button onclick="registerPlayer()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg">CADASTRAR E CONFIRMAR</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold">Confirmados para Hoje</h3>
+                    <button onclick="drawTeams()" class="bg-green-600 text-white text-sm px-4 py-2 rounded-lg font-bold">SORTEAR TIMES</button>
+                </div>
+                <div class="mb-4">
+                    <label class="text-xs text-gray-500 block mb-1">Jogadores por Equipa:</label>
+                    <input type="number" id="players-per-team" value="7" min="2" class="p-2 border rounded-lg w-20">
+                </div>
+                <div id="attendance-list" class="space-y-2">
+                    <!-- Lista de Presença Dinâmica -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 3: MATCH DAY (JOGO) -->
+        <section id="tab-jogo" class="tab-content hidden">
+            <!-- Cronômetro e Placar -->
+            <div class="bg-pitch text-white p-6 rounded-xl shadow-lg mb-6 text-center">
+                <div class="flex justify-around items-center mb-4">
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs uppercase font-bold opacity-80">Equipa A</span>
+                        <div id="score-a" class="text-5xl font-black">0</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div id="timer-display" class="text-4xl font-mono bg-black/30 px-4 py-2 rounded-lg mb-2">10:00</div>
+                        <div class="flex space-x-2">
+                            <button id="timer-ctrl" onclick="toggleTimer()" class="bg-red text-pitch px-4 py-1 rounded-full text-xs font-bold">INICIAR</button>
+                            <button onclick="configTimer()" class="bg-white/20 text-white px-3 py-1 rounded-full text-xs">⚙️</button>
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs uppercase font-bold opacity-80">Equipa B</span>
+                        <div id="score-b" class="text-5xl font-black">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Times em Campo -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="space-y-2">
+                    <h4 class="text-sm font-bold border-b pb-1 flex justify-between">
+                        TIME A <button onclick="addGoal('A')" class="text-indigo-600 bg-white px-2 rounded">+ GOL</button>
+                    </h4>
+                    <div id="field-a" class="space-y-1"></div>
+                </div>
+                <div class="space-y-2">
+                    <h4 class="text-sm font-bold border-b pb-1 flex justify-between">
+                        TIME B <button onclick="addGoal('B')" class="text-indigo-600 bg-white px-2 rounded">+ GOL</button>
+                    </h4>
+                    <div id="field-b" class="space-y-1"></div>
+                </div>
+            </div>
+
+            <!-- Fila de Espera -->
+            <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
+                <h4 class="text-sm font-bold mb-3 uppercase text-gray-500">Próximos da Fila (Prioridade)</h4>
+                <div id="waiting-list" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- Finalizar Partida -->
+            <div class="flex space-x-2">
+                <button onclick="endMatch('A')" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-bold">VENCEDOR A</button>
+                <button onclick="endMatch('Empate')" class="flex-1 bg-gray-500 text-white py-3 rounded-lg font-bold">EMPATE</button>
+                <button onclick="endMatch('B')" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold">VENCEDOR B</button>
+            </div>
+
+            <!-- Jogadores Punidos (VM) -->
+            <div id="punished-container" class="mt-8 hidden">
+                <h4 class="text-sm font-bold mb-3 text-red-600 uppercase">Suspensos Temporários</h4>
+                <div id="punished-list" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <!-- ABA 4: RANKING -->
+        <section id="tab-ranking" class="tab-content hidden">
+            <div class="bg-white p-4 rounded-xl shadow-sm overflow-hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-bold">Estatísticas Gerais</h2>
+                    <button onclick="exportRankingCSV()" class="bg-green-100 text-green-700 text-xs px-3 py-1 rounded font-bold">Exportar CSV</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="p-2">Atleta</th>
+                                <th class="p-2 text-center">GOL</th>
+                                <th class="p-2 text-center">AST</th>
+                                <th class="p-2 text-center">CA</th>
+                                <th class="p-2 text-center">CV</th>
+                                <th class="p-2 text-center">VIT</th>
+                                <th class="p-2 text-center">APR%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL DE REGISTRO DE EVENTOS (Gol/Cartão) -->
+    <div id="event-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6">
+            <h3 id="modal-title" class="text-xl font-bold mb-4">Registrar Gol</h3>
+            
+            <div id="modal-step-1">
+                <p class="text-sm text-gray-500 mb-3" id="modal-instruction">Quem marcou o gol?</p>
+                <div id="modal-player-list" class="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4"></div>
+            </div>
+
+            <div id="modal-step-2" class="hidden">
+                <p class="text-sm text-gray-500 mb-3">Quem deu a assistência? (Obrigatório)</p>
+                <div id="modal-assist-list" class="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4"></div>
+            </div>
+
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeModal()" class="text-gray-500 px-4 py-2 font-medium">Cancelar</button>
+            </div>
+        </div>
     </div>
 
+    <!-- Script de Logica -->
     <script>
         // --- Estado Global ---
-        const STORAGE_KEY_PLAYERS = 'asmeto_players_v6';
-        const STORAGE_KEY_SESSIONS = 'asmeto_sessions_v6';
-
-        function loadInitialState() {
-            const savedPlayers = localStorage.getItem(STORAGE_KEY_PLAYERS);
-            const savedSessions = localStorage.getItem(STORAGE_KEY_SESSIONS);
-            
-            return {
-                view: 'sessions_list', 
-                players: savedPlayers ? JSON.parse(savedPlayers) : [],
-                sessions: savedSessions ? JSON.parse(savedSessions) : [],
-                activeSessionId: null,
-                newSessionName: '',
-                newPlayerName: '',
-                playersPerTeam: 7,
-                punishmentTime: 90, 
-                showEventModal: null, 
-                eventType: null, 
-                selectedPlayerId: null,
-                subModal: null,
-                showPresenceModal: false 
-            };
-        }
-
-        let state = loadInitialState();
+        let sessions = JSON.parse(localStorage.getItem('asmeto_sessions')) || [];
+        let currentSession = null;
+        let players = JSON.parse(localStorage.getItem('asmeto_players')) || [];
+        let sessionPlayers = []; // Confirmados na sessão atual
+        let teamA = [];
+        let teamB = [];
+        let waitingList = [];
+        let punishedPlayers = [];
+        let stats = JSON.parse(localStorage.getItem('asmeto_stats')) || {}; // {playerId: {gol, ast, ca, cv, vit, games}}
+        
+        // Cronômetro
+        let timerSeconds = 480;
+        let initialSeconds = 480;
         let timerInterval = null;
-        let penaltyInterval = null;
+        let isTimerRunning = false;
 
-        // --- Persistência ---
-        function saveToStorage() {
-            localStorage.setItem(STORAGE_KEY_PLAYERS, JSON.stringify(state.players));
-            localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(state.sessions));
+        // Foto Temporária
+        let currentCapturedPhoto = "";
+
+        // --- Inicialização ---
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active', 'bg-indigo-600', 'text-white'));
+            
+            document.getElementById(tabId).classList.remove('hidden');
+            const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+            activeBtn.classList.add('active', 'bg-indigo-600', 'text-white');
+            
+            if(tabId === 'tab-ranking') renderRanking();
+            if(tabId === 'tab-sessao') renderSessions();
         }
 
-        function getActiveSession() {
-            return state.sessions.find(s => s.id === state.activeSessionId);
-        }
-
-        // --- Ações de Sessão ---
+        // --- Gestão de Sessão ---
         function createSession() {
-            const name = state.newSessionName.trim() || `Pelada ${new Date().toLocaleDateString()}`;
-            const session = {
+            const name = document.getElementById('session-name-input').value;
+            if(!name) return showMsg("Insira o nome da sessão");
+            
+            currentSession = {
                 id: Date.now(),
                 name: name,
-                date: new Date().toISOString(),
-                confirmedIds: [],
-                teamA: [],
-                teamB: [],
-                waitingList: [],
-                scoreA: 0,
-                scoreB: 0,
-                timer: 600,
-                isActive: false,
-                matchEvents: [],
-                penalizedPlayers: [] 
+                date: new Date().toLocaleDateString(),
+                confirmedCount: 0
             };
-            state.sessions.unshift(session);
-            state.newSessionName = '';
-            saveToStorage();
-            render();
+            sessions.push(currentSession);
+            localStorage.setItem('asmeto_sessions', JSON.stringify(sessions));
+            
+            document.getElementById('current-session-name').innerText = name;
+            document.getElementById('session-name-input').value = "";
+            sessionPlayers = [];
+            renderAttendance();
+            showTab('tab-atletas');
         }
 
-        function openSession(id) {
-            state.activeSessionId = id;
-            state.view = 'setup';
-            render();
+        function renderSessions() {
+            const container = document.getElementById('history-list');
+            if(sessions.length === 0) return;
+            container.innerHTML = sessions.map(s => `
+                <div class="border p-3 rounded-lg flex justify-between items-center text-sm">
+                    <div>
+                        <div class="font-bold">${s.name}</div>
+                        <div class="text-xs text-gray-500">${s.date} - ${s.confirmedCount} atletas</div>
+                    </div>
+                    <button onclick="loadSession(${s.id})" class="text-indigo-600 font-bold">Selecionar</button>
+                </div>
+            `).join('');
         }
 
-        function deleteSession(id) {
-            if(!confirm("Excluir esta pelada?")) return;
-            state.sessions = state.sessions.filter(s => s.id !== id);
-            if(state.activeSessionId === id) state.activeSessionId = null;
-            saveToStorage();
-            render();
+        function loadSession(id) {
+            currentSession = sessions.find(s => s.id === id);
+            document.getElementById('current-session-name').innerText = currentSession.name;
+            showTab('tab-atletas');
         }
 
-        // --- Lógica de Presença ---
-        function addAndConfirmPlayer() {
-            const name = state.newPlayerName.trim();
-            if (!name) return;
-            let player = state.players.find(p => p.name.toLowerCase() === name.toLowerCase());
-            if (!player) {
-                player = { id: Date.now(), name: name, goals: 0, assists: 0, yellowCards: 0, redCards: 0, wins: 0, matches: 0 };
-                state.players.push(player);
+        // --- Gestão de Atletas ---
+        async function startCamera() {
+            const video = document.getElementById('camera-preview');
+            const placeholder = document.getElementById('camera-placeholder');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                document.getElementById('btn-capture').classList.remove('hidden');
+                document.getElementById('btn-start-camera').innerText = "Reiniciar Câmera";
+            } catch (err) {
+                showMsg("Erro ao acessar câmera: " + err.message);
             }
-            const session = getActiveSession();
-            if (!session.confirmedIds.includes(player.id)) {
-                session.confirmedIds.push(player.id);
-                if (session.teamA.length > 0 || session.teamB.length > 0) {
-                    if (!session.waitingList.find(p => p.id === player.id)) {
-                        session.waitingList.push(player);
-                    }
-                }
-            }
-            state.newPlayerName = '';
-            saveToStorage();
-            render();
         }
 
-        function togglePresence(playerId) {
-            const session = getActiveSession();
-            const player = state.players.find(p => p.id === playerId);
+        function capturePhoto() {
+            const video = document.getElementById('camera-preview');
+            const canvas = document.getElementById('photo-canvas');
+            const preview = document.getElementById('photo-preview');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0);
+            
+            currentCapturedPhoto = canvas.toDataURL('image/jpeg', 0.5);
+            preview.src = currentCapturedPhoto;
+            preview.classList.remove('hidden');
+            video.classList.add('hidden');
+            document.getElementById('btn-capture').innerText = "Tentar Novamente";
+        }
 
-            if (session.confirmedIds.includes(playerId)) {
-                session.confirmedIds = session.confirmedIds.filter(id => id !== playerId);
-                session.teamA = session.teamA.filter(p => p.id !== playerId);
-                session.teamB = session.teamB.filter(p => p.id !== playerId);
-                session.waitingList = session.waitingList.filter(p => p.id !== playerId);
-                session.penalizedPlayers = session.penalizedPlayers.filter(p => p.playerId !== playerId);
+        function registerPlayer() {
+            const name = document.getElementById('player-name-input').value;
+            if(!name) return showMsg("Nome é obrigatório");
+            if(!currentSession) return showMsg("Crie uma sessão primeiro");
+
+            const player = {
+                id: Date.now().toString(),
+                name: name,
+                photo: currentCapturedPhoto || "https://ui-avatars.com/api/?name="+name,
+                winsInRow: 0
+            };
+
+            players.push(player);
+            localStorage.setItem('asmeto_players', JSON.stringify(players));
+            
+            // Inicia estatísticas se novo
+            if(!stats[player.id]) {
+                stats[player.id] = { gol: 0, ast: 0, ca: 0, cv: 0, vit: 0, games: 0 };
+            }
+
+            // Confirma na sessão
+            sessionPlayers.push(player);
+            currentSession.confirmedCount = sessionPlayers.length;
+            localStorage.setItem('asmeto_sessions', JSON.stringify(sessions));
+
+            // Se o jogo já estiver rolando, quem chega entra no fim da fila
+            if(teamA.length > 0) {
+                waitingList.push(player);
+                renderField();
+            }
+
+            // Reset UI
+            document.getElementById('player-name-input').value = "";
+            document.getElementById('photo-preview').classList.add('hidden');
+            document.getElementById('camera-placeholder').classList.remove('hidden');
+            currentCapturedPhoto = "";
+            
+            renderAttendance();
+            showMsg("Atleta cadastrado!");
+        }
+
+        function renderAttendance() {
+            const list = document.getElementById('attendance-list');
+            list.innerHTML = sessionPlayers.map(p => `
+                <div class="flex items-center justify-between bg-gray-50 p-2 rounded-lg border">
+                    <div class="flex items-center space-x-3">
+                        <img src="${p.photo}" class="w-10 h-10 rounded-full object-cover border">
+                        <span class="font-medium">${p.name}</span>
+                    </div>
+                    <input type="checkbox" checked class="w-5 h-5 accent-indigo-600">
+                </div>
+            `).join('');
+        }
+
+        // --- Lógica de Times ---
+        function drawTeams() {
+            if(sessionPlayers.length < 4) return showMsg("Mínimo de 4 atletas");
+            const perTeam = parseInt(document.getElementById('players-per-team').value);
+            
+            // Sorteio por ordem de cadastro conforme requisito
+            const pool = [...sessionPlayers];
+            teamA = pool.splice(0, perTeam);
+            teamB = pool.splice(0, perTeam);
+            waitingList = pool; // Resto vai para fila
+
+            showTab('tab-jogo');
+            renderField();
+        }
+
+        function renderField() {
+            const renderList = (players, containerId) => {
+                const div = document.getElementById(containerId);
+                div.innerHTML = players.map(p => {
+                    const isPunished = punishedPlayers.find(pp => pp.id === p.id);
+                    return `
+                        <div class="flex items-center justify-between bg-white p-2 rounded shadow-sm border ${isPunished ? 'suspended' : ''}">
+                            <div class="flex items-center space-x-2">
+                                <img src="${p.photo}" class="w-8 h-8 rounded-full">
+                                <span class="text-xs font-bold truncate w-20">${p.name}</span>
+                            </div>
+                            <div class="flex space-x-1">
+                                <button onclick="giveCard('${p.id}', 'amarelo')" class="bg-yellow-400 w-4 h-6 rounded-sm"></button>
+                                <button onclick="giveCard('${p.id}', 'vermelho')" class="bg-red-500 w-4 h-6 rounded-sm"></button>
+                                <button onclick="substitutePlayer('${p.id}', '${containerId.slice(-1).toUpperCase()}')" class="bg-gray-200 p-1 rounded text-[10px]">🔃</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            renderList(teamA, 'field-a');
+            renderList(teamB, 'field-b');
+
+            // Fila
+            const waitingDiv = document.getElementById('waiting-list');
+            waitingDiv.innerHTML = waitingList.map(p => `
+                <div class="relative group">
+                    <img src="${p.photo}" class="w-12 h-12 rounded-lg object-cover border-2 border-indigo-200">
+                    <button onclick="removeFromWaiting('${p.id}')" class="absolute -top-2 -right-2 bg-red-500 text-white text-[8px] rounded-full w-4 h-4">X</button>
+                </div>
+            `).join('');
+        }
+
+        // --- Substituições e Fila ---
+        function substitutePlayer(playerId, teamLabel) {
+            if(waitingList.length === 0) return showMsg("Ninguém na fila!");
+            
+            const next = waitingList.shift();
+            if(teamLabel === 'A') {
+                const idx = teamA.findIndex(p => p.id === playerId);
+                waitingList.push(teamA[idx]); // Jogador que saiu vai pro fim da fila
+                teamA[idx] = next;
             } else {
-                session.confirmedIds.push(playerId);
-                if (state.view === 'match' || session.teamA.length > 0) {
-                     if (!session.waitingList.find(p => p.id === playerId)) {
-                        session.waitingList.push(player);
-                    }
-                }
+                const idx = teamB.findIndex(p => p.id === playerId);
+                waitingList.push(teamB[idx]);
+                teamB[idx] = next;
             }
-            saveToStorage();
-            render();
+            renderField();
         }
 
-        function startMatch() {
-            const session = getActiveSession();
-            const activePlayers = state.players.filter(p => session.confirmedIds.includes(p.id));
-            const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
-            session.teamA = shuffled.slice(0, state.playersPerTeam);
-            session.teamB = shuffled.slice(state.playersPerTeam, state.playersPerTeam * 2);
-            session.waitingList = shuffled.slice(state.playersPerTeam * 2);
-            session.matchEvents = [];
-            session.penalizedPlayers = [];
-            session.scoreA = 0;
-            session.scoreB = 0;
-            session.timer = 600;
-            state.view = 'match';
-            startPenaltyTimer();
-            saveToStorage();
-            render();
+        function removeFromWaiting(id) {
+            waitingList = waitingList.filter(p => p.id !== id);
+            renderField();
         }
 
-        // --- Temporizadores ---
+        // --- Match Day ---
         function toggleTimer() {
-            const session = getActiveSession();
-            session.isActive = !session.isActive;
-            if (session.isActive) {
-                timerInterval = setInterval(() => {
-                    if (session.timer > 0) { session.timer--; render(); } 
-                    else { clearInterval(timerInterval); session.isActive = false; render(); }
-                }, 1000);
-            } else { clearInterval(timerInterval); }
-            render();
-        }
-
-        function startPenaltyTimer() {
-            if (penaltyInterval) clearInterval(penaltyInterval);
-            penaltyInterval = setInterval(() => {
-                const session = getActiveSession();
-                if (!session || !session.penalizedPlayers.length) return;
-                
-                let changed = false;
-                session.penalizedPlayers.forEach(p => {
-                    if (p.timeLeft > 0) {
-                        p.timeLeft--;
-                        changed = true;
-                    }
-                });
-
-                const finished = session.penalizedPlayers.filter(p => p.timeLeft <= 0);
-                if (finished.length > 0) {
-                    finished.forEach(penalized => {
-                        const fullPlayer = state.players.find(p => p.id === penalized.playerId);
-                        if (penalized.originalTeam === 'A' && session.teamA.length < state.playersPerTeam) {
-                            session.teamA.push(fullPlayer);
-                        } else if (penalized.originalTeam === 'B' && session.teamB.length < state.playersPerTeam) {
-                            session.teamB.push(fullPlayer);
-                        } else {
-                            session.waitingList.push(fullPlayer);
-                        }
-                        session.penalizedPlayers = session.penalizedPlayers.filter(p => p.playerId !== penalized.playerId);
-                    });
-                    changed = true;
-                }
-                
-                if (changed) {
-                    saveToStorage();
-                    render();
-                }
-            }, 1000);
-        }
-
-        // --- Renderização ---
-        function render() {
-            const app = document.getElementById('app');
-            app.innerHTML = `
-                <nav class="bg-white border-b border-gray-100 sticky top-0 z-40 px-6 py-5 shadow-sm">
-                    <div class="max-w-md mx-auto flex justify-between items-center">
-                        <div class="flex flex-col cursor-pointer" onclick="state.view = 'sessions_list'; render();">
-                            <h1 class="text-2xl font-black-italic tracking-tighter text-green-700 leading-none">ASMETO</h1>
-                            <span class="text-[8px] font-black uppercase tracking-[0.4em] text-green-500/60 mt-1">SISTEMA DE GESTÃO</span>
-                        </div>
-                        ${state.activeSessionId ? `
-                        <div class="bg-gray-100 p-1.5 rounded-2xl flex gap-1">
-                            <button onclick="state.view = 'setup'; render();" class="p-2.5 rounded-xl transition-all ${state.view === 'setup' ? 'bg-white shadow-sm text-green-700' : 'text-gray-400'}"><i data-lucide="users"></i></button>
-                            <button onclick="state.view = 'match'; render();" class="p-2.5 rounded-xl transition-all ${state.view === 'match' ? 'bg-white shadow-sm text-green-700' : 'text-gray-400'}"><i data-lucide="timer"></i></button>
-                            <button onclick="state.view = 'ranking'; render();" class="p-2.5 rounded-xl transition-all ${state.view === 'ranking' ? 'bg-white shadow-sm text-green-700' : 'text-gray-400'}"><i data-lucide="trophy"></i></button>
-                        </div>
-                        ` : ''}
-                    </div>
-                </nav>
-                <main class="max-w-md mx-auto p-4 animate-fade-in">
-                    ${renderView()}
-                </main>
-                ${renderModals()}
-            `;
-            lucide.createIcons();
-        }
-
-        function renderView() {
-            if (state.view === 'sessions_list') return renderSessionsList();
-            if (!state.activeSessionId) return renderSessionsList();
-            switch(state.view) {
-                case 'setup': return renderSetup();
-                case 'match': return renderMatch();
-                case 'ranking': return renderRanking();
-                default: return renderSessionsList();
-            }
-        }
-
-        function renderSessionsList() {
-            return `
-                <div class="space-y-6">
-                    <div class="bg-zinc-900 p-8 rounded-[32px] text-white shadow-xl">
-                        <h2 class="text-3xl font-black-italic italic uppercase leading-none">Minhas Peladas</h2>
-                    </div>
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                        <p class="text-[10px] font-black text-gray-400 uppercase mb-3 italic">Nova Pelada</p>
-                        <div class="flex gap-2">
-                            <input type="text" placeholder="Ex: Pelada de Quarta..." 
-                                oninput="state.newSessionName = this.value" value="${state.newSessionName}"
-                                class="flex-1 p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium focus:ring-2 focus:ring-green-500 transition-all">
-                            <button onclick="createSession()" class="bg-green-600 text-white px-6 rounded-2xl shadow-lg active:scale-95"><i data-lucide="plus"></i></button>
-                        </div>
-                    </div>
-                    <div class="space-y-3">
-                        ${state.sessions.map(s => `
-                            <div class="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm flex justify-between items-center">
-                                <div class="cursor-pointer flex-1" onclick="openSession(${s.id})">
-                                    <h3 class="font-black text-zinc-800 italic uppercase">${s.name}</h3>
-                                    <p class="text-[9px] text-gray-400 font-bold uppercase">${new Date(s.date).toLocaleDateString()} • ${s.confirmedIds.length} Atletas</p>
-                                </div>
-                                <button onclick="deleteSession(${s.id})" class="text-gray-300 hover:text-red-500 p-2"><i data-lucide="trash-2" size="18"></i></button>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderSetup() {
-            const session = getActiveSession();
-            return `
-                <div class="space-y-6">
-                    <div class="flex items-center gap-4">
-                        <button onclick="state.view = 'sessions_list'; render();" class="p-3 bg-white rounded-2xl border border-gray-100 text-gray-400"><i data-lucide="chevron-left"></i></button>
-                        <h2 class="text-xl font-black-italic italic uppercase truncate">${session.name}</h2>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                        <p class="text-[10px] font-black text-gray-400 uppercase mb-3 italic">Configurações de Jogo</p>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[9px] font-bold text-gray-400 uppercase">Atletas p/ Time</label>
-                                <div class="flex items-center gap-3 mt-1">
-                                    <button onclick="state.playersPerTeam = Math.max(2, state.playersPerTeam-1); render()" class="w-8 h-8 bg-gray-100 rounded-lg text-xs font-bold">-</button>
-                                    <span class="font-black">${state.playersPerTeam}</span>
-                                    <button onclick="state.playersPerTeam = Math.min(11, state.playersPerTeam+1); render()" class="w-8 h-8 bg-gray-100 rounded-lg text-xs font-bold">+</button>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="text-[9px] font-bold text-gray-400 uppercase">Punição VM (seg)</label>
-                                <div class="flex items-center gap-3 mt-1">
-                                    <button onclick="state.punishmentTime = Math.max(10, state.punishmentTime-10); render()" class="w-8 h-8 bg-gray-100 rounded-lg text-xs font-bold">-</button>
-                                    <span class="font-black">${state.punishmentTime}s</span>
-                                    <button onclick="state.punishmentTime = Math.min(600, state.punishmentTime+10); render()" class="w-8 h-8 bg-gray-100 rounded-lg text-xs font-bold">+</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                        <p class="text-[10px] font-black text-gray-400 uppercase mb-3 italic">Lista de Presença</p>
-                        <div class="flex gap-2 mb-4">
-                            <input type="text" placeholder="Nome do Atleta..." 
-                                oninput="state.newPlayerName = this.value" value="${state.newPlayerName}"
-                                class="flex-1 p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium">
-                            <button onclick="addAndConfirmPlayer()" class="bg-zinc-900 text-white px-6 rounded-2xl font-black uppercase text-xs italic">Ok</button>
-                        </div>
-                        <div class="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
-                            ${state.players.map(p => {
-                                const isConfirmed = session.confirmedIds.includes(p.id);
-                                return `
-                                    <button onclick="togglePresence(${p.id})" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50">
-                                        <div class="w-5 h-5 rounded border-2 flex items-center justify-center ${isConfirmed ? 'bg-green-600 border-green-600 text-white' : 'border-gray-200'}">
-                                            ${isConfirmed ? '<i data-lucide="check" size="12"></i>' : ''}
-                                        </div>
-                                        <span class="font-bold uppercase italic text-xs ${isConfirmed ? 'text-zinc-800' : 'text-gray-300'}">${p.name}</span>
-                                    </button>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-
-                    <button onclick="startMatch()" class="w-full bg-green-600 text-white font-black py-5 rounded-2xl shadow-xl uppercase tracking-widest active:scale-95 transition-all">
-                        Iniciar Partida
-                    </button>
-                </div>
-            `;
-        }
-
-        function renderMatch() {
-            const session = getActiveSession();
-            const formatTime = (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
-            
-            return `
-                <div class="space-y-6">
-                    <!-- Placar e Timer -->
-                    <div class="bg-zinc-900 text-white p-6 rounded-[32px] shadow-2xl relative overflow-hidden">
-                        <div class="flex justify-between items-center mb-6 relative z-10">
-                             <div class="text-center flex-1">
-                                <p class="text-[10px] font-black text-green-500 uppercase italic">Time A</p>
-                                <p class="text-6xl font-black-italic leading-none">${session.scoreA}</p>
-                             </div>
-                             <div class="text-center px-4">
-                                <p class="text-2xl font-mono font-bold text-green-400">${formatTime(session.timer)}</p>
-                                <button onclick="toggleTimer()" class="mt-2 p-2 bg-zinc-800 rounded-full inline-block">
-                                    <i data-lucide="${session.isActive ? 'pause' : 'play'}" size="20"></i>
-                                </button>
-                             </div>
-                             <div class="text-center flex-1">
-                                <p class="text-[10px] font-black text-blue-500 uppercase italic">Time B</p>
-                                <p class="text-6xl font-black-italic leading-none">${session.scoreB}</p>
-                             </div>
-                        </div>
-                        <div class="flex gap-2 relative z-10">
-                            <button onclick="openEvent('A', 'goal')" class="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-[10px] font-black uppercase italic">GOL A</button>
-                            <button onclick="openEvent('B', 'goal')" class="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-[10px] font-black uppercase italic">GOL B</button>
-                        </div>
-                        <div class="flex gap-2 mt-2 relative z-10">
-                            <button onclick="openEvent('A', 'card')" class="flex-1 bg-zinc-800 text-zinc-400 py-2 rounded-xl text-[8px] font-black uppercase italic">Cartão A</button>
-                            <button onclick="openEvent('B', 'card')" class="flex-1 bg-zinc-800 text-zinc-400 py-2 rounded-xl text-[8px] font-black uppercase italic">Cartão B</button>
-                        </div>
-                    </div>
-
-                    <button onclick="state.showPresenceModal = true; render();" class="w-full flex items-center justify-center gap-2 py-4 bg-white border border-dashed border-gray-300 rounded-2xl text-gray-500 font-black uppercase italic text-xs hover:bg-gray-50 transition-all">
-                        <i data-lucide="users" size="16"></i> Gerenciar Atletas (Atrasos/Saídas)
-                    </button>
-
-                    ${session.penalizedPlayers.length > 0 ? `
-                        <div class="bg-red-50 border border-red-100 p-4 rounded-3xl space-y-2">
-                            <h4 class="text-[10px] font-black text-red-600 uppercase italic flex items-center gap-2">
-                                <i data-lucide="alert-circle" size="14"></i> Suspensão Temporária
-                            </h4>
-                            ${session.penalizedPlayers.map(p => {
-                                const player = state.players.find(pl => pl.id === p.playerId);
-                                return `
-                                    <div class="bg-white p-3 rounded-2xl flex justify-between items-center shadow-sm card-red-pulse">
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-3 h-5 bg-red-600 rounded-sm"></div>
-                                            <span class="font-black italic uppercase text-xs">${player ? player.name : 'Jogador'}</span>
-                                            <span class="px-2 py-0.5 bg-gray-100 rounded text-[8px] font-black">Time ${p.originalTeam}</span>
-                                        </div>
-                                        <div class="text-red-600 font-mono font-bold text-sm">${formatTime(p.timeLeft)}</div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    ` : ''}
-
-                    <div class="grid grid-cols-1 gap-4">
-                        ${renderLiveTeamCard('A', session.teamA)}
-                        ${renderLiveTeamCard('B', session.teamB)}
-                    </div>
-
-                    <div class="bg-amber-50 p-6 rounded-[32px] border border-amber-100">
-                        <h4 class="font-black text-amber-800 mb-4 text-[10px] uppercase tracking-widest flex items-center gap-2"><i data-lucide="clock" size="14"></i> ESPERA (${session.waitingList.length})</h4>
-                        <div class="flex flex-wrap gap-2">
-                            ${session.waitingList.map((p) => `
-                                <div class="flex items-center gap-1 bg-white px-3 py-1.5 rounded-xl border border-amber-200 shadow-sm">
-                                    <span class="text-[10px] font-black italic uppercase text-amber-900">${p.name}</span>
-                                    <button onclick="togglePresence(${p.id})" class="text-red-300 hover:text-red-500"><i data-lucide="x-circle" size="12"></i></button>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-
-                    <div class="flex gap-2 pt-4">
-                        <button onclick="finishMatch('A')" class="flex-1 bg-zinc-900 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-widest shadow-lg">Venceu A</button>
-                        <button onclick="finishMatch('B')" class="flex-1 bg-zinc-900 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-widest shadow-lg">Venceu B</button>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderLiveTeamCard(label, team) {
-            const session = getActiveSession();
-            const color = label === 'A' ? 'text-green-600' : 'text-blue-600';
-            
-            return `
-                <div class="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
-                    <div class="flex justify-between items-center mb-3">
-                         <h4 class="font-black text-gray-400 text-[10px] uppercase italic">TIME ${label}</h4>
-                         <span class="text-[10px] font-black ${color}">${team.length}/${state.playersPerTeam}</span>
-                    </div>
-                    <div class="space-y-2">
-                        ${team.map(p => {
-                            const yellowCards = (session.matchEvents || []).filter(e => e.playerId === p.id && e.type === 'yellow').length;
-                            return `
-                                <div class="flex justify-between items-center p-3 bg-gray-50/50 border border-gray-100 rounded-2xl">
-                                    <div class="flex items-center gap-2 truncate">
-                                        <span class="font-black text-gray-800 italic uppercase text-[11px] truncate">${p.name}</span>
-                                        ${yellowCards > 0 ? `<div class="w-2 h-3 bg-yellow-400 rounded-sm shadow-sm"></div>` : ''}
-                                    </div>
-                                    <div class="flex gap-1 shrink-0">
-                                        <button title="Substituição" onclick="openSubModal('${label}', ${p.id})" class="p-1.5 bg-white rounded-lg text-amber-500 shadow-sm hover:bg-amber-50"><i data-lucide="refresh-cw" size="12"></i></button>
-                                        <button title="Retirar da Partida" onclick="togglePresence(${p.id})" class="p-1.5 bg-white rounded-lg text-red-500 shadow-sm hover:bg-red-50"><i data-lucide="user-minus" size="12"></i></button>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderRanking() {
-            const sorted = [...state.players].sort((a,b) => {
-                const aprA = a.matches > 0 ? (a.wins/a.matches) : 0;
-                const aprB = b.matches > 0 ? (b.wins/b.matches) : 0;
-                if (aprB !== aprA) return aprB - aprA;
-                return b.goals - a.goals;
-            });
-            
-            return `
-                <div class="space-y-6">
-                    <div class="bg-zinc-900 p-8 rounded-[32px] text-white shadow-xl relative overflow-hidden">
-                        <h2 class="text-2xl font-black-italic uppercase italic relative z-10">Ranking Geral</h2>
-                        <i data-lucide="trophy" class="absolute right-[-20px] top-[-20px] w-40 h-40 text-white/5 rotate-12"></i>
-                    </div>
-                    <div class="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-100">
-                        <div class="overflow-x-auto custom-scrollbar">
-                            <table class="w-full text-[10px]">
-                                <thead class="bg-gray-50 text-gray-400 font-black uppercase tracking-widest text-left">
-                                    <tr>
-                                        <th class="px-6 py-4 whitespace-nowrap">Atleta</th>
-                                        <th class="px-2 py-4 text-center">G</th>
-                                        <th class="px-2 py-4 text-center">A</th>
-                                        <th class="px-2 py-4 text-center text-yellow-500">CA</th>
-                                        <th class="px-2 py-4 text-center text-red-500">CV</th>
-                                        <th class="px-2 py-4 text-center">Vits</th>
-                                        <th class="px-4 py-4 text-right">Apr.</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-50">
-                                    ${sorted.filter(p => p.matches > 0).map((p) => `
-                                        <tr>
-                                            <td class="px-6 py-4 font-black uppercase italic text-zinc-800 whitespace-nowrap">${p.name}</td>
-                                            <td class="px-2 py-4 font-black text-green-600 text-center">${p.goals || 0}</td>
-                                            <td class="px-2 py-4 font-black text-blue-600 text-center">${p.assists || 0}</td>
-                                            <td class="px-2 py-4 font-black text-yellow-600 text-center">${p.yellowCards || 0}</td>
-                                            <td class="px-2 py-4 font-black text-red-600 text-center">${p.redCards || 0}</td>
-                                            <td class="px-2 py-4 font-black text-zinc-900 text-center">${p.wins || 0}</td>
-                                            <td class="px-4 py-4 text-right font-black italic text-zinc-400">${Math.round(((p.wins || 0)/(p.matches || 1))*100)}%</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // --- Registro de Eventos ---
-        function registerCard(playerId, cardType) {
-            const session = getActiveSession();
-            const teamLabel = state.showEventModal;
-            
-            state.players = state.players.map(p => {
-                if (p.id === playerId) {
-                    if (cardType === 'yellow') p.yellowCards = (p.yellowCards || 0) + 1;
-                    else p.redCards = (p.redCards || 0) + 1;
-                }
-                return p;
-            });
-
-            if (!session.matchEvents) session.matchEvents = [];
-            session.matchEvents.push({ playerId, type: cardType });
-
-            const playerEvents = session.matchEvents.filter(e => e.playerId === playerId);
-            const yellows = playerEvents.filter(e => e.type === 'yellow').length;
-            const hasRed = playerEvents.some(e => e.type === 'red');
-
-            if (hasRed || yellows >= 2) {
-                if (teamLabel === 'A') session.teamA = session.teamA.filter(p => p.id !== playerId);
-                else session.teamB = session.teamB.filter(p => p.id !== playerId);
-                
-                session.penalizedPlayers.push({
-                    playerId: playerId,
-                    timeLeft: state.punishmentTime,
-                    originalTeam: teamLabel
-                });
-            }
-
-            state.showEventModal = null;
-            saveToStorage();
-            render();
-        }
-
-        function finishMatch(winner) {
-            const session = getActiveSession();
-            const winners = winner === 'A' ? session.teamA : session.teamB;
-            const losers = winner === 'A' ? session.teamB : session.teamA;
-
-            state.players.forEach(p => {
-                if (winners.some(w => w.id === p.id)) { p.wins = (p.wins || 0) + 1; p.matches = (p.matches || 0) + 1; }
-                else if (losers.some(l => l.id === p.id)) { p.matches = (p.matches || 0) + 1; }
-            });
-
-            const needed = state.playersPerTeam;
-            let nextTeam = session.waitingList.slice(0, needed);
-            session.waitingList = session.waitingList.slice(needed);
-
-            if (nextTeam.length < needed) {
-                const diff = needed - nextTeam.length;
-                nextTeam = [...nextTeam, ...losers.slice(0, diff)];
-                session.waitingList = [...session.waitingList, ...losers.slice(diff)];
+            const btn = document.getElementById('timer-ctrl');
+            if(isTimerRunning) {
+                clearInterval(timerInterval);
+                btn.innerText = "RETOMAR";
             } else {
-                session.waitingList = [...session.waitingList, ...losers];
+                timerInterval = setInterval(() => {
+                    if(timerSeconds <= 0) {
+                        clearInterval(timerInterval);
+                        showMsg("Fim de Jogo!");
+                        return;
+                    }
+                    timerSeconds--;
+                    updateTimerUI();
+                    updatePunishmentTimers();
+                }, 1000);
+                btn.innerText = "PAUSAR";
+            }
+            isTimerRunning = !isTimerRunning;
+        }
+
+        function updateTimerUI() {
+            const mins = Math.floor(timerSeconds / 60);
+            const secs = timerSeconds % 60;
+            document.getElementById('timer-display').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function configTimer() {
+            const t = prompt("Definir minutos de jogo:", "10");
+            if(t) {
+                initialSeconds = parseInt(t) * 60;
+                timerSeconds = initialSeconds;
+                updateTimerUI();
+            }
+        }
+
+        function addGoal(teamLabel) {
+            const list = teamLabel === 'A' ? teamA : teamB;
+            openModal("Registrar Gol", list, (scorerId) => {
+                // Step 2: Assistencia
+                stats[scorerId].gol++;
+                const assistList = list.filter(p => p.id !== scorerId);
+                openModal("Assistência Obrigatória", assistList, (assisterId) => {
+                    stats[assisterId].ast++;
+                    if(teamLabel === 'A') {
+                        document.getElementById('score-a').innerText = parseInt(document.getElementById('score-a').innerText) + 1;
+                    } else {
+                        document.getElementById('score-b').innerText = parseInt(document.getElementById('score-b').innerText) + 1;
+                    }
+                    closeModal();
+                }, true);
+            });
+        }
+
+        function giveCard(playerId, type) {
+            if(type === 'amarelo') {
+                stats[playerId].ca++;
+                // Verifica 2º amarelo
+                const pCA = players.find(p => p.id === playerId);
+                pCA.tempCA = (pCA.tempCA || 0) + 1;
+                if(pCA.tempCA >= 2) {
+                    pCA.tempCA = 0;
+                    punishPlayer(playerId, "2º Amarelo");
+                }
+            } else {
+                stats[playerId].cv++;
+                punishPlayer(playerId, "Vermelho");
+            }
+            renderField();
+            localStorage.setItem('asmeto_stats', JSON.stringify(stats));
+        }
+
+        function punishPlayer(playerId, reason) {
+            const player = players.find(p => p.id === playerId);
+            punishedPlayers.push({ ...player, reason, timeLeft: 90 }); // 90 segundos padrão
+            document.getElementById('punished-container').classList.remove('hidden');
+            renderPunished();
+        }
+
+        function updatePunishmentTimers() {
+            if(punishedPlayers.length === 0) return;
+            punishedPlayers.forEach(p => {
+                p.timeLeft--;
+            });
+            const finished = punishedPlayers.filter(p => p.timeLeft <= 0);
+            if(finished.length > 0) {
+                punishedPlayers = punishedPlayers.filter(p => p.timeLeft > 0);
+                showMsg("Jogador retornou da punição");
+                renderField();
+            }
+            renderPunished();
+        }
+
+        function renderPunished() {
+            const div = document.getElementById('punished-list');
+            div.innerHTML = punishedPlayers.map(p => `
+                <div class="bg-red-50 p-2 rounded flex justify-between items-center text-xs">
+                    <span class="font-bold">${p.name} (${p.reason})</span>
+                    <span class="bg-red-600 text-white px-2 py-1 rounded">${p.timeLeft}s</span>
+                </div>
+            `).join('');
+            if(punishedPlayers.length === 0) document.getElementById('punished-container').classList.add('hidden');
+        }
+
+        // --- Rotação de Vencedores ---
+        function endMatch(winner) {
+            const scoreA = parseInt(document.getElementById('score-a').innerText);
+            const scoreB = parseInt(document.getElementById('score-b').innerText);
+            
+            // Registra games jogados
+            [...teamA, ...teamB].forEach(p => stats[p.id].games++);
+
+            let winningTeam = [];
+            let losingTeam = [];
+
+            if(winner === 'A' || (winner === 'Empate' && scoreA > scoreB)) {
+                winningTeam = teamA;
+                losingTeam = teamB;
+            } else if (winner === 'B') {
+                winningTeam = teamB;
+                losingTeam = teamA;
+            } else {
+                // Caso empate total, critério do sistema ou sorteio para manter um
+                winningTeam = teamA;
+                losingTeam = teamB;
+                showMsg("Empate: Time A mantido por padrão.");
             }
 
-            if (winner === 'A') session.teamB = nextTeam;
-            else session.teamA = nextTeam;
-
-            session.scoreA = 0; session.scoreB = 0;
-            session.timer = 600;
-            session.isActive = false;
-            session.matchEvents = [];
-            session.penalizedPlayers = []; 
-            clearInterval(timerInterval);
-            saveToStorage();
-            render();
-        }
-
-        function registerGoal(assistId) {
-            const session = getActiveSession();
-            const playerId = state.selectedPlayerId;
-            const team = state.showEventModal;
-            state.players = state.players.map(p => {
-                if (p.id === playerId) { p.goals = (p.goals || 0) + 1; if(team === 'A') session.scoreA++; else session.scoreB++; }
-                if (assistId && p.id === assistId) p.assists = (p.assists || 0) + 1;
-                return p;
+            // Atribui vitórias
+            winningTeam.forEach(p => {
+                stats[p.id].vit++;
+                p.winsInRow = (p.winsInRow || 0) + 1;
             });
-            state.showEventModal = null;
-            saveToStorage();
-            render();
+            losingTeam.forEach(p => p.winsInRow = 0);
+
+            // Regra de 3 vitórias seguidas
+            const forcedExit = winningTeam.some(p => p.winsInRow >= 3);
+            if(forcedExit) {
+                showMsg("Time atingiu 3 vitórias e saiu da quadra!");
+                waitingList.push(...winningTeam);
+                winningTeam.forEach(p => p.winsInRow = 0);
+                // Próximos dois times da fila entram
+                const perTeam = winningTeam.length;
+                teamA = waitingList.splice(0, perTeam);
+                teamB = waitingList.splice(0, perTeam);
+            } else {
+                // Perdedor vai pro fim da fila
+                waitingList.push(...losingTeam);
+                const perTeam = losingTeam.length;
+                const nextTeam = waitingList.splice(0, perTeam);
+                
+                if(winner === 'A') teamB = nextTeam;
+                else teamA = nextTeam;
+            }
+
+            // Reset Game UI
+            document.getElementById('score-a').innerText = "0";
+            document.getElementById('score-b').innerText = "0";
+            timerSeconds = initialSeconds;
+            updateTimerUI();
+            localStorage.setItem('asmeto_stats', JSON.stringify(stats));
+            renderField();
+            showMsg("Partida encerrada. Próximos!");
         }
 
-        function openEvent(teamLabel, type) {
-            state.showEventModal = teamLabel;
-            state.eventType = type;
-            state.selectedPlayerId = null;
-            render();
-        }
+        // --- Ranking ---
+        function renderRanking() {
+            const body = document.getElementById('ranking-body');
+            const sorted = Object.keys(stats).map(id => ({
+                id, 
+                ...stats[id], 
+                name: players.find(p => p.id === id)?.name || 'Ex-Atleta',
+                apr: stats[id].games > 0 ? ((stats[id].vit / stats[id].games) * 100).toFixed(1) : 0
+            })).sort((a, b) => b.gol - a.gol);
 
-        function openSubModal(teamName, playerId) {
-            const session = getActiveSession();
-            const team = teamName === 'A' ? session.teamA : session.teamB;
-            const player = team.find(p => p.id === playerId);
-            if(session.waitingList.length === 0) return;
-            state.subModal = { team, player, teamName };
-            render();
-        }
-
-        function executeSub() {
-            const session = getActiveSession();
-            const { player, teamName } = state.subModal;
-            const next = session.waitingList.shift();
-            session.waitingList.push(player);
-            if (teamName === 'A') session.teamA = session.teamA.map(p => p.id === player.id ? next : p);
-            else session.teamB = session.teamB.map(p => p.id === player.id ? next : p);
-            state.subModal = null;
-            saveToStorage();
-            render();
+            body.innerHTML = sorted.map(s => `
+                <tr class="border-b">
+                    <td class="p-2 font-medium">${s.name}</td>
+                    <td class="p-2 text-center">${s.gol}</td>
+                    <td class="p-2 text-center">${s.ast}</td>
+                    <td class="p-2 text-center">${s.ca}</td>
+                    <td class="p-2 text-center">${s.cv}</td>
+                    <td class="p-2 text-center">${s.vit}</td>
+                    <td class="p-2 text-center">${s.apr}%</td>
+                </tr>
+            `).join('');
         }
 
         // --- Modais ---
-        function renderModals() {
-            let html = '';
+        let modalCallback = null;
+        function openModal(title, playerList, callback, isStep2 = false) {
+            document.getElementById('event-modal').classList.remove('hidden');
+            document.getElementById('modal-title').innerText = title;
+            const container = isStep2 ? document.getElementById('modal-assist-list') : document.getElementById('modal-player-list');
             
-            if (state.showPresenceModal) {
-                const session = getActiveSession();
-                html += `
-                    <div class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div class="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl">
-                            <div class="bg-zinc-900 p-6 text-white text-center font-black uppercase italic tracking-widest text-xs">LISTA DE PRESENÇA</div>
-                            <div class="p-6">
-                                <div class="flex gap-2 mb-4">
-                                    <input type="text" placeholder="Chegou agora?" 
-                                        oninput="state.newPlayerName = this.value" value="${state.newPlayerName}"
-                                        class="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none font-medium text-sm">
-                                    <button onclick="addAndConfirmPlayer()" class="bg-green-600 text-white px-4 rounded-xl font-black uppercase text-[10px] italic">Add</button>
-                                </div>
-                                <div class="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
-                                    ${state.players.map(p => {
-                                        const isConfirmed = session.confirmedIds.includes(p.id);
-                                        return `
-                                            <button onclick="togglePresence(${p.id})" class="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 border ${isConfirmed ? 'border-green-100 bg-green-50/20' : 'border-transparent'}">
-                                                <div class="w-4 h-4 rounded border-2 flex items-center justify-center ${isConfirmed ? 'bg-green-600 border-green-600 text-white' : 'border-gray-200'}">
-                                                    ${isConfirmed ? '<i data-lucide="check" size="10"></i>' : ''}
-                                                </div>
-                                                <span class="font-bold uppercase italic text-[10px] ${isConfirmed ? 'text-zinc-800' : 'text-gray-300'}">${p.name}</span>
-                                            </button>
-                                        `;
-                                    }).join('')}
-                                </div>
-                                <button onclick="state.showPresenceModal=false; render()" class="w-full bg-zinc-100 text-zinc-500 font-black py-4 rounded-xl uppercase text-[10px] tracking-widest mt-6">Confirmar e Fechar</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (state.showEventModal) {
-                const session = getActiveSession();
-                const team = state.showEventModal === 'A' ? session.teamA : session.teamB;
-                let modalTitle = state.eventType === 'goal' ? (!state.selectedPlayerId ? 'AUTOR DO GOL' : 'ASSISTÊNCIA') : (!state.selectedPlayerId ? 'ESCOLHER JOGADOR' : 'TIPO DE CARTÃO');
-                html += `
-                    <div class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div class="bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl">
-                            <div class="bg-zinc-900 p-6 text-white text-center font-black uppercase italic tracking-widest text-xs">${modalTitle}</div>
-                            <div class="p-6 space-y-2 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                                ${state.eventType === 'goal' ? renderGoalFlow(team) : renderCardFlow(team)}
-                                <button onclick="state.showEventModal=null; render()" class="w-full text-gray-400 font-black py-4 uppercase text-[10px] tracking-widest mt-4">Fechar</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (state.subModal) {
-                html += `
-                    <div class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div class="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl text-center">
-                             <h3 class="text-xl font-black-italic uppercase italic mb-6">Substituir</h3>
-                             <p class="text-[10px] font-black text-gray-400 uppercase mb-2">Saindo: ${state.subModal.player.name}</p>
-                             <button onclick="executeSub()" class="w-full bg-green-600 text-white font-black py-5 rounded-2xl uppercase italic text-xs">Confirmar Troca</button>
-                             <button onclick="state.subModal=null; render()" class="w-full text-gray-400 font-bold py-2 uppercase text-[10px] mt-2">Voltar</button>
-                        </div>
-                    </div>
-                `;
-            }
-
-            return html;
-        }
-
-        function renderGoalFlow(team) {
-            if (!state.selectedPlayerId) {
-                return team.map(p => `<button onclick="state.selectedPlayerId = ${p.id}; render()" class="w-full p-4 bg-gray-50 rounded-2xl font-black uppercase italic text-left text-xs">${p.name}</button>`).join('');
+            if(!isStep2) {
+                document.getElementById('modal-step-1').classList.remove('hidden');
+                document.getElementById('modal-step-2').classList.add('hidden');
             } else {
-                return `<button onclick="registerGoal(null)" class="w-full p-4 bg-gray-100 rounded-2xl font-black text-xs uppercase mb-2">Sem Assistência</button>` + 
-                       team.filter(p => p.id !== state.selectedPlayerId).map(p => `<button onclick="registerGoal(${p.id})" class="w-full p-4 bg-blue-50 text-blue-900 rounded-2xl font-black text-xs uppercase italic mt-1 text-left">${p.name}</button>`).join('');
+                document.getElementById('modal-step-1').classList.add('hidden');
+                document.getElementById('modal-step-2').classList.remove('hidden');
             }
+
+            container.innerHTML = playerList.map(p => `
+                <button onclick="selectModalPlayer('${p.id}')" class="w-full text-left p-3 border rounded-lg hover:bg-indigo-50 flex items-center space-x-3">
+                    <img src="${p.photo}" class="w-8 h-8 rounded-full">
+                    <span class="font-bold">${p.name}</span>
+                </button>
+            `).join('');
+            modalCallback = callback;
         }
 
-        function renderCardFlow(team) {
-            if (!state.selectedPlayerId) {
-                return team.map(p => `<button onclick="state.selectedPlayerId = ${p.id}; render()" class="w-full p-4 bg-gray-50 rounded-2xl font-black uppercase italic text-left text-xs">${p.name}</button>`).join('');
-            } else {
-                return `
-                    <div class="grid grid-cols-2 gap-3">
-                        <button onclick="registerCard(${state.selectedPlayerId}, 'yellow')" class="p-8 bg-yellow-400 rounded-2xl flex flex-col items-center gap-2">
-                            <div class="w-4 h-6 bg-yellow-400 border border-yellow-500 rounded-sm"></div>
-                            <span class="font-black italic uppercase text-[10px]">AMARELO</span>
-                        </button>
-                        <button onclick="registerCard(${state.selectedPlayerId}, 'red')" class="p-8 bg-red-600 rounded-2xl flex flex-col items-center gap-2 text-white">
-                            <div class="w-4 h-6 bg-red-600 border border-red-700 rounded-sm"></div>
-                            <span class="font-black italic uppercase text-[10px]">VERMELHO</span>
-                        </button>
-                    </div>
-                `;
-            }
+        function selectModalPlayer(id) {
+            if(modalCallback) modalCallback(id);
         }
 
-        render();
-        startPenaltyTimer();
+        function closeModal() {
+            document.getElementById('event-modal').classList.add('hidden');
+            modalCallback = null;
+        }
+
+        // --- Exportação CSV ---
+        function exportRankingCSV() {
+            const headers = "Atleta,Gols,Assist,CA,CV,Vit,Apr%\n";
+            const rows = Object.keys(stats).map(id => {
+                const s = stats[id];
+                const p = players.find(pl => pl.id === id);
+                const apr = s.games > 0 ? ((s.vit / s.games) * 100).toFixed(1) : 0;
+                return `${p?.name || 'Unknown'},${s.gol},${s.ast},${s.ca},${s.cv},${s.vit},${apr}%`;
+            }).join("\n");
+            
+            downloadCSV("ranking_asmeto.csv", headers + rows);
+        }
+
+        function exportHistoryCSV() {
+            const headers = "ID,Sessão,Data,Atletas\n";
+            const rows = sessions.map(s => `${s.id},${s.name},${s.date},${s.confirmedCount}`).join("\n");
+            downloadCSV("historico_asmeto.csv", headers + rows);
+        }
+
+        function downloadCSV(filename, content) {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function showMsg(msg) {
+            const toast = document.createElement('div');
+            toast.className = "fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm z-50 shadow-2xl animate-bounce";
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Carregar tela inicial
+        renderSessions();
     </script>
 </body>
 </html>
