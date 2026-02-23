@@ -378,8 +378,8 @@
             localState.players.push(newP);
             localState.queue.push(newP.id);
             
-            while(localState.teamA.length < 5 && localState.queue.length > 0) localState.teamA.push(localState.queue.shift());
-            while(localState.teamB.length < 5 && localState.queue.length > 0) localState.teamB.push(localState.queue.shift());
+            while(localState.teamA.length < 7 && localState.queue.length > 0) localState.teamA.push(localState.queue.shift());
+            while(localState.teamB.length < 7 && localState.queue.length > 0) localState.teamB.push(localState.queue.shift());
             
             document.getElementById('player-name').value = '';
             document.getElementById('photo-preview').classList.add('hidden');
