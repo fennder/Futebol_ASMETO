@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASMETO 2026 - Gestor de Futebol</title>
+    <title>ASMETO 2026 - Gestor de Futebol Local</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
@@ -25,22 +25,39 @@
         </div>
     </nav>
 
-    <!-- Estado de Ligação -->
-    <div id="auth-status" class="bg-yellow-100 text-yellow-800 text-[10px] text-center py-1 font-bold">LIGANDO AO SERVIDOR...</div>
+    <!-- Estado de Ligação (Local) -->
+    <div class="bg-green-100 text-green-800 text-[10px] text-center py-1 font-bold uppercase">Armazenamento Local e CSV Disponível</div>
 
     <!-- Conteúdo Principal -->
     <main id="app-content" class="max-w-4xl mx-auto p-4">
         
         <!-- Tab: Configuração -->
         <section id="tab-config" class="space-y-6">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">🚀 Nova Pelada Pública</h2>
-                <input id="session-name" type="text" placeholder="Nome da Pelada (ex: Pelada de Quarta)" class="w-full p-3 border rounded-xl mb-4 focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="createNewSession()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">CRIAR SESSÃO PÚBLICA</button>
+            <!-- Backup e Sincronização CSV -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-blue-500">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">💾 Cópia de Segurança (CSV)</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="exportToCSV()" class="bg-blue-50 text-blue-700 font-bold py-3 rounded-xl border border-blue-200 hover:bg-blue-100 transition flex flex-col items-center gap-1">
+                        <span class="text-xl">📤</span>
+                        <span class="text-[10px] uppercase tracking-wider">Exportar Dados</span>
+                    </button>
+                    <label class="bg-green-50 text-green-700 font-bold py-3 rounded-xl border border-green-200 hover:bg-green-100 transition flex flex-col items-center gap-1 cursor-pointer">
+                        <span class="text-xl">📥</span>
+                        <span class="text-[10px] uppercase tracking-wider">Importar Dados</span>
+                        <input type="file" id="csv-upload" class="hidden" accept=".csv" onchange="importFromCSV(event)">
+                    </label>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-3 text-center uppercase font-medium">Recomendado: Exportar após cada pelada para manter um registo externo.</p>
             </div>
 
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-bold mb-4">👥 Cadastro de Atleta</h2>
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">🚀 Nova Sessão de Jogo</h2>
+                <input id="session-name" type="text" placeholder="Nome da Pelada (ex: Torneio de Verão)" class="w-full p-3 border rounded-xl mb-4 focus:ring-2 focus:ring-blue-500 outline-none">
+                <button onclick="createNewSession()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition uppercase">Criar Nova Sessão</button>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-bold mb-4">👥 Registo de Atleta</h2>
                 <div class="flex flex-col gap-4">
                     <div class="relative w-full h-48 bg-gray-200 rounded-xl overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-300">
                         <video id="camera-preview" class="hidden w-full h-full object-cover"></video>
@@ -48,16 +65,18 @@
                         <img id="photo-preview" class="hidden w-full h-full object-cover">
                         <div id="camera-placeholder" class="text-center">
                             <span class="text-4xl">📸</span>
-                            <p class="text-xs text-gray-500 mt-2">Toque para usar a câmera</p>
+                            <p class="text-xs text-gray-500 mt-2">Clique para ativar a câmara</p>
                         </div>
                         <button onclick="startCamera()" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer"></button>
                     </div>
-                    <button id="snap-btn" onclick="takePhoto()" class="hidden bg-yellow-500 text-white py-2 rounded-lg font-bold">CAPTURAR FOTO</button>
+                    <button id="snap-btn" onclick="takePhoto()" class="hidden bg-yellow-500 text-white py-2 rounded-lg font-bold uppercase">Capturar Foto</button>
                     
-                    <input id="player-name" type="text" placeholder="Nome do Atleta" class="p-3 border rounded-xl">
-                    <button onclick="registerPlayer()" class="bg-green-600 text-white font-bold py-3 rounded-xl">CADASTRAR E ENTRAR NA FILA</button>
+                    <input id="player-name" type="text" placeholder="Nome do Jogador" class="p-3 border rounded-xl">
+                    <button onclick="registerPlayer()" class="bg-green-600 text-white font-bold py-3 rounded-xl uppercase">Registar e Entrar na Fila</button>
                 </div>
             </div>
+
+            <button onclick="resetAllData()" class="w-full text-red-500 text-[10px] font-bold py-2 border border-red-200 rounded-lg hover:bg-red-50 uppercase tracking-widest">⚠️ Apagar Memória Local (Limpar Tudo)</button>
         </section>
 
         <!-- Tab: Partida -->
@@ -77,63 +96,63 @@
 
             <div class="flex items-center justify-between gap-4">
                 <div class="flex-1 bg-white p-4 rounded-2xl shadow text-center border-b-4 border-blue-500">
-                    <h3 class="text-xs font-bold text-gray-500 uppercase">Time A</h3>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase">Equipa A</h3>
                     <div id="score-a" class="text-4xl font-black">0</div>
-                    <button onclick="openGoalModal('A')" class="mt-2 bg-blue-100 text-blue-600 p-2 rounded-lg text-sm font-bold w-full">+ GOL</button>
+                    <button onclick="openGoalModal('A')" class="mt-2 bg-blue-100 text-blue-600 p-2 rounded-lg text-sm font-bold w-full uppercase">+ Golo</button>
                 </div>
                 <div class="text-2xl font-black text-gray-300 italic">VS</div>
                 <div class="flex-1 bg-white p-4 rounded-2xl shadow text-center border-b-4 border-red-500">
-                    <h3 class="text-xs font-bold text-gray-500 uppercase">Time B</h3>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase">Equipa B</h3>
                     <div id="score-b" class="text-4xl font-black">0</div>
-                    <button onclick="openGoalModal('B')" class="mt-2 bg-red-100 text-red-600 p-2 rounded-lg text-sm font-bold w-full">+ GOL</button>
+                    <button onclick="openGoalModal('B')" class="mt-2 bg-red-100 text-red-600 p-2 rounded-lg text-sm font-bold w-full uppercase">+ Golo</button>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="space-y-2">
-                    <h4 class="font-bold text-sm text-blue-800 uppercase px-1">Escalação Time A</h4>
+                    <h4 class="font-bold text-sm text-blue-800 uppercase px-1">Escalação Equipa A</h4>
                     <div id="team-a-list" class="space-y-1"></div>
                 </div>
                 <div class="space-y-2">
-                    <h4 class="font-bold text-sm text-red-800 uppercase px-1">Escalação Time B</h4>
+                    <h4 class="font-bold text-sm text-red-800 uppercase px-1">Escalação Equipa B</h4>
                     <div id="team-b-list" class="space-y-1"></div>
                 </div>
             </div>
 
             <div id="punishment-section" class="hidden bg-yellow-50 p-4 rounded-2xl border border-yellow-200">
-                <h4 class="text-sm font-bold text-yellow-800 mb-2">⚖️ Suspensões (VM)</h4>
+                <h4 class="text-sm font-bold text-yellow-800 mb-2">⚖️ Suspensões Activas</h4>
                 <div id="punished-list" class="space-y-2 text-xs"></div>
             </div>
 
             <div class="bg-white p-6 rounded-2xl shadow-sm">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="font-bold">⏳ Fila de Espera</h2>
+                    <h2 class="font-bold">⏳ Lista de Espera</h2>
                     <span id="queue-count" class="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold">0</span>
                 </div>
                 <div id="waiting-queue" class="space-y-2"></div>
             </div>
 
             <div class="flex gap-2">
-                <button onclick="finishMatch('A')" class="flex-1 bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg">VITÓRIA A</button>
-                <button onclick="finishMatch('Draw')" class="bg-gray-200 text-gray-700 font-bold px-4 rounded-xl">EMPATE</button>
-                <button onclick="finishMatch('B')" class="flex-1 bg-red-600 text-white font-bold py-4 rounded-xl shadow-lg">VITÓRIA B</button>
+                <button onclick="finishMatch('A')" class="flex-1 bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg uppercase">Vitória A</button>
+                <button onclick="finishMatch('Draw')" class="bg-gray-200 text-gray-700 font-bold px-4 rounded-xl uppercase">Empate</button>
+                <button onclick="finishMatch('B')" class="flex-1 bg-red-600 text-white font-bold py-4 rounded-xl shadow-lg uppercase">Vitória B</button>
             </div>
         </section>
 
         <!-- Tab: Stats -->
         <section id="tab-stats" class="hidden space-y-4">
             <div class="bg-white p-4 rounded-2xl shadow-sm overflow-hidden">
-                <h2 class="text-xl font-bold mb-4">🏆 Ranking ASMETO 2026</h2>
+                <h2 class="text-xl font-bold mb-4">🏆 Ranking Geral</h2>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-gray-50 text-gray-400 uppercase text-[10px]">
                             <tr>
                                 <th class="p-3">Atleta</th>
-                                <th class="p-3">Gols</th>
-                                <th class="p-3">Ast</th>
-                                <th class="p-3">Vit</th>
-                                <th class="p-3">CV/CA</th>
-                                <th class="p-3">Aprov.</th>
+                                <th class="p-3 text-center">Golos</th>
+                                <th class="p-3 text-center">Ast</th>
+                                <th class="p-3 text-center">Vit</th>
+                                <th class="p-3 text-center">Cartões</th>
+                                <th class="p-3 text-center">Aprov.</th>
                             </tr>
                         </thead>
                         <tbody id="stats-table-body" class="divide-y divide-gray-100"></tbody>
@@ -148,19 +167,8 @@
         <div id="modal-content" class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"></div>
     </div>
 
-    <!-- Scripts Firebase e Lógica -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'asmeto-2026';
-
-        // Estado Local
+    <script>
+        // --- Estado Global Local ---
         let localState = {
             session: { name: 'Nenhuma', date: '', active: false },
             players: [],
@@ -174,76 +182,99 @@
             victoriesStreak: 0
         };
 
-        let user = null;
-        let timerValue = 600;
-        let timerInterval = null;
+        const STORAGE_KEY = 'asmeto_2026_local_data';
 
-        // Funções de Ajuda para Firestore (Regra 1 - Caminhos Estritos)
-        const getMasterDocRef = () => {
-            // No ambiente Canvas, o appId pode ser um caminho. Garantimos 6 segmentos (par) para o documento.
-            // Caminho: artifacts -> {appId} -> public -> data -> sessao -> principal
-            return doc(db, 'artifacts', appId, 'public', 'data', 'sessao', 'principal');
+        // --- Persistência LocalStorage ---
+        function loadFromLocal() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (data) {
+                localState = JSON.parse(data);
+            }
+            updateUI();
+        }
+
+        function saveToLocal() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(localState));
+            updateUI();
+        }
+
+        // --- Exportação/Importação CSV ---
+        window.exportToCSV = () => {
+            // Criamos um CSV plano. Para dados complexos como fotos, guardamos o estado completo como uma string JSON numa das células
+            // para permitir a reconstrução fiel de todos os campos.
+            const headers = "ASMETO_BACKUP_VERSION,DATA_JSON\n";
+            const jsonString = JSON.stringify(localState);
+            // Escapar aspas para CSV
+            const escapedJson = jsonString.replace(/"/g, '""');
+            const csvContent = headers + `1.0,"${escapedJson}"`;
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `asmeto_backup_${new Date().toISOString().slice(0,10)}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         };
 
-        // --- Inicialização e Auth ---
-        async function init() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+        window.importFromCSV = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                try {
+                    // Extrair o JSON que está entre as aspas na segunda linha
+                    const parts = text.split('\n');
+                    if (parts.length < 2) throw new Error("Ficheiro inválido");
+                    
+                    const csvRow = parts[1];
+                    // Remover a versão e as aspas envolventes do JSON
+                    const firstCommaIndex = csvRow.indexOf(',');
+                    let jsonContent = csvRow.substring(firstCommaIndex + 1).trim();
+                    
+                    // Remover as aspas de início e fim e des-escapar as aspas internas
+                    if (jsonContent.startsWith('"') && jsonContent.endsWith('"')) {
+                        jsonContent = jsonContent.substring(1, jsonContent.length - 1);
+                    }
+                    jsonContent = jsonContent.replace(/""/g, '"');
+
+                    const importedData = JSON.parse(jsonContent);
+                    if (confirm("Desejas substituir todos os dados atuais pelos dados deste ficheiro?")) {
+                        localState = importedData;
+                        saveToLocal();
+                        alert("Dados importados com sucesso!");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("Erro ao ler o ficheiro CSV. Certifica-te de que é um backup válido do ASMETO.");
                 }
-            } catch (err) {
-                console.error("Erro Auth:", err);
-                document.getElementById('auth-status').innerText = "ERRO DE LIGAÇÃO";
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset do input
+        };
+
+        function resetAllData() {
+            if (confirm("Tens a certeza que queres apagar todos os dados? Esta ação não pode ser revertida.")) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
             }
         }
 
-        onAuthStateChanged(auth, (u) => {
-            user = u;
-            if (user) {
-                document.getElementById('auth-status').innerText = `LIGADO - SESSÃO PÚBLICA`;
-                setupSync();
-            }
-        });
-
-        // --- Sincronização ---
-        function setupSync() {
-            const masterDoc = getMasterDocRef();
-            
-            onSnapshot(masterDoc, (docSnap) => {
-                if (docSnap.exists()) {
-                    localState = { ...localState, ...docSnap.data() };
-                    updateUI();
-                } else {
-                    setDoc(masterDoc, localState);
-                }
-            }, (err) => {
-                console.error("Erro no Snapshot:", err);
-            });
-        }
-
-        async function updateCloud(data) {
-            if (!user) return;
-            const masterDoc = getMasterDocRef();
-            try {
-                await updateDoc(masterDoc, data);
-            } catch (e) {
-                await setDoc(masterDoc, { ...localState, ...data }, { merge: true });
-            }
-        }
-
-        // --- UI Logic ---
+        // --- Lógica de Interface ---
         window.switchTab = (tabId) => {
             document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
             document.getElementById(`tab-${tabId}`).classList.remove('hidden');
         };
 
         function updateUI() {
-            document.getElementById('current-session-display').innerText = localState.session.name;
-            document.getElementById('session-date').innerText = localState.session.date;
-            document.getElementById('score-a').innerText = localState.scoreA;
-            document.getElementById('score-b').innerText = localState.scoreB;
+            document.getElementById('current-session-display').innerText = localState.session.name || 'Nenhuma Sessão';
+            document.getElementById('session-date').innerText = localState.session.date || '';
+            document.getElementById('score-a').innerText = localState.scoreA || 0;
+            document.getElementById('score-b').innerText = localState.scoreB || 0;
             document.getElementById('queue-count').innerText = localState.queue.length;
 
             const renderP = (id, team) => {
@@ -270,11 +301,12 @@
             
             document.getElementById('waiting-queue').innerHTML = localState.queue.map((id, idx) => {
                 const p = localState.players.find(x => x.id === id);
+                if (!p) return '';
                 return `
                     <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
                         <span class="text-xs font-black text-gray-300">#${idx + 1}</span>
                         <span class="flex-1 px-3 font-semibold text-gray-700">${p.name}</span>
-                        <button onclick="window.removeQueue('${id}')" class="text-[10px] text-red-500 font-bold uppercase">Sair</button>
+                        <button onclick="window.removeQueue('${id}')" class="text-[10px] text-red-500 font-bold uppercase">Remover</button>
                     </div>
                 `;
             }).join('');
@@ -288,12 +320,21 @@
             const sorted = [...localState.players].sort((a,b) => {
                 const aprA = a.stats.games ? a.stats.vit / a.stats.games : 0;
                 const aprB = b.stats.games ? b.stats.vit / b.stats.games : 0;
-                return aprB - aprA;
+                if (aprB !== aprA) return aprB - aprA;
+                return b.stats.g - a.stats.g;
             });
 
             tbody.innerHTML = sorted.map(p => {
                 const apr = p.stats.games ? Math.round((p.stats.vit / p.stats.games) * 100) : 0;
-                return `<tr class="text-xs"><td class="p-3 font-bold">${p.name}</td><td class="p-3">${p.stats.g}</td><td class="p-3 text-gray-400">${p.stats.a}</td><td class="p-3 font-bold text-green-600">${p.stats.vit}</td><td class="p-3 text-gray-400">${p.stats.cv}/${p.stats.ca}</td><td class="p-3 font-black text-blue-700">${apr}%</td></tr>`;
+                return `
+                    <tr class="text-xs">
+                        <td class="p-3 font-bold">${p.name}</td>
+                        <td class="p-3 text-center">${p.stats.g}</td>
+                        <td class="p-3 text-center text-gray-400">${p.stats.a}</td>
+                        <td class="p-3 text-center font-bold text-green-600">${p.stats.vit}</td>
+                        <td class="p-3 text-center text-gray-400">${p.stats.cv}V / ${p.stats.ca}A</td>
+                        <td class="p-3 text-center font-black text-blue-700">${apr}%</td>
+                    </tr>`;
             }).join('');
         }
 
@@ -310,42 +351,46 @@
             }).join('');
         }
 
-        // --- Game Actions ---
-        window.createNewSession = async () => {
+        // --- Ações de Jogo ---
+        window.createNewSession = () => {
             const name = document.getElementById('session-name').value;
             if (!name) return;
-            await updateCloud({
-                session: { name, date: new Date().toLocaleDateString(), active: true },
-                teamA: [], teamB: [], scoreA: 0, scoreB: 0,
-                queue: localState.players.map(p => p.id),
-                winnerLast: null, victoriesStreak: 0
-            });
+            localState.session = { name, date: new Date().toLocaleDateString('pt-PT'), active: true };
+            localState.scoreA = 0;
+            localState.scoreB = 0;
+            localState.queue = localState.players.map(p => p.id);
+            localState.winnerLast = null;
+            localState.victoriesStreak = 0;
+            saveToLocal();
             switchTab('match');
         };
 
-        window.registerPlayer = async () => {
+        window.registerPlayer = () => {
             const name = document.getElementById('player-name').value;
             const photo = document.getElementById('photo-preview').src;
             if (!name) return;
-            const newP = { id: Date.now().toString(), name, photo: photo.startsWith('data') ? photo : null, stats: { g: 0, a: 0, ca: 0, cv: 0, vit: 0, games: 0 } };
-            const updatedPlayers = [...localState.players, newP];
-            const updatedQueue = [...localState.queue, newP.id];
-            await updateCloud({ players: updatedPlayers, queue: updatedQueue });
+            const newP = { 
+                id: Date.now().toString(), 
+                name, 
+                photo: photo.includes('data:image') ? photo : null, 
+                stats: { g: 0, a: 0, ca: 0, cv: 0, vit: 0, games: 0 } 
+            };
+            localState.players.push(newP);
+            localState.queue.push(newP.id);
             
-            if (localState.teamA.length < 5 || localState.teamB.length < 5) {
-                const q = [...updatedQueue]; const tA = [...localState.teamA]; const tB = [...localState.teamB];
-                while(tA.length < 5 && q.length > 0) tA.push(q.shift());
-                while(tB.length < 5 && q.length > 0) tB.push(q.shift());
-                await updateCloud({ teamA: tA, teamB: tB, queue: q });
-            }
+            while(localState.teamA.length < 5 && localState.queue.length > 0) localState.teamA.push(localState.queue.shift());
+            while(localState.teamB.length < 5 && localState.queue.length > 0) localState.teamB.push(localState.queue.shift());
+            
             document.getElementById('player-name').value = '';
             document.getElementById('photo-preview').classList.add('hidden');
+            document.getElementById('camera-placeholder').classList.remove('hidden');
+            saveToLocal();
         };
 
         window.openGoalModal = (team) => {
             const ids = team === 'A' ? localState.teamA : localState.teamB;
-            const players = ids.map(id => localState.players.find(p => p.id === id));
-            let h = `<h2 class="text-xl font-bold mb-4">GOLO TIME ${team}</h2><div class="grid gap-2">`;
+            const players = ids.map(id => localState.players.find(p => p.id === id)).filter(p => p);
+            let h = `<h2 class="text-xl font-bold mb-4">GOLO EQUIPA ${team}</h2><div class="grid gap-2">`;
             players.forEach(p => { h += `<button onclick="window.regGoal('${team}', '${p.id}')" class="p-4 bg-blue-50 rounded-xl font-bold">${p.name}</button>`; });
             h += `</div>`;
             showModal(h);
@@ -353,104 +398,184 @@
 
         window.regGoal = (team, scorerId) => {
             const ids = team === 'A' ? localState.teamA : localState.teamB;
-            const others = ids.filter(id => id !== scorerId).map(id => localState.players.find(p => p.id === id));
-            let h = `<h2 class="text-xl font-bold mb-4">ASSISTÊNCIA</h2><div class="grid gap-2">`;
+            const others = ids.filter(id => id !== scorerId).map(id => localState.players.find(p => p.id === id)).filter(p => p);
+            let h = `<h2 class="text-xl font-bold mb-4">ASSISTÊNCIA?</h2><div class="grid gap-2">`;
             others.forEach(p => { h += `<button onclick="window.confirmGoal('${team}', '${scorerId}', '${p.id}')" class="p-4 bg-gray-100 rounded-xl font-bold">${p.name}</button>`; });
             h += `<button onclick="window.confirmGoal('${team}', '${scorerId}', null)" class="p-4 bg-gray-200 rounded-xl">Sem assistência</button></div>`;
             showModal(h);
         };
 
-        window.confirmGoal = async (team, sid, aid) => {
-            const players = [...localState.players];
-            players.find(x => x.id === sid).stats.g++;
-            if (aid) players.find(x => x.id === aid).stats.a++;
-            const up = { players };
-            if (team === 'A') up.scoreA = localState.scoreA + 1; else up.scoreB = localState.scoreB + 1;
-            await updateCloud(up);
+        window.confirmGoal = (team, sid, aid) => {
+            const scorer = localState.players.find(x => x.id === sid);
+            if(scorer) scorer.stats.g++;
+            if (aid) {
+                const assist = localState.players.find(x => x.id === aid);
+                if(assist) assist.stats.a++;
+            }
+            if (team === 'A') localState.scoreA++; else localState.scoreB++;
+            saveToLocal();
             closeModal();
         };
 
-        window.card = async (id, type) => {
-            const players = [...localState.players];
-            const p = players.find(x => x.id === id);
-            const pun = [...localState.punishments];
+        window.card = (id, type) => {
+            const p = localState.players.find(x => x.id === id);
+            if (!p) return;
             if (type === 'yellow') {
                 p.stats.ca++;
-                if (p.stats.ca % 2 === 0) pun.push({ id, type: '2 Amarelos', endTime: Date.now() + 90000 });
+                if (p.stats.ca % 2 === 0) localState.punishments.push({ id, type: '2 Amarelos', endTime: Date.now() + 120000 });
             } else {
                 p.stats.cv++;
-                pun.push({ id, type: 'Vermelho', endTime: Date.now() + 90000 });
+                localState.punishments.push({ id, type: 'Vermelho', endTime: Date.now() + 180000 });
             }
-            await updateCloud({ players, punishments: pun });
+            saveToLocal();
         };
 
-        window.sub = async (id, team) => {
+        window.sub = (id, team) => {
             if (localState.queue.length === 0) return;
-            const q = [...localState.queue]; const next = q.shift();
-            const tA = [...localState.teamA]; const tB = [...localState.teamB];
-            if (team === 'A') { const idx = tA.indexOf(id); tA[idx] = next; }
-            else { const idx = tB.indexOf(id); tB[idx] = next; }
-            q.push(id);
-            await updateCloud({ teamA: tA, teamB: tB, queue: q });
+            const next = localState.queue.shift();
+            if (team === 'A') { 
+                const idx = localState.teamA.indexOf(id); 
+                localState.teamA[idx] = next; 
+            } else { 
+                const idx = localState.teamB.indexOf(id); 
+                localState.teamB[idx] = next; 
+            }
+            localState.queue.push(id);
+            saveToLocal();
         };
 
-        window.removeQueue = async (id) => {
-            await updateCloud({ queue: localState.queue.filter(x => x !== id) });
+        window.removeQueue = (id) => {
+            localState.queue = localState.queue.filter(x => x !== id);
+            saveToLocal();
         };
 
-        window.finishMatch = async (winner) => {
-            const players = [...localState.players];
-            [...localState.teamA, ...localState.teamB].forEach(id => players.find(x => x.id === id).stats.games++);
-            if (winner === 'Draw') return;
-            if (winner === 'A') localState.teamA.forEach(id => players.find(x => x.id === id).stats.vit++);
-            else localState.teamB.forEach(id => players.find(x => x.id === id).stats.vit++);
-            const winners = winner === 'A' ? localState.teamA : localState.teamB;
-            const losers = winner === 'A' ? localState.teamB : localState.teamA;
-            const q = [...localState.queue]; q.push(...losers);
-            let streak = localState.winnerLast === winner ? localState.victoriesStreak + 1 : 1;
-            let finalWinners = winners;
-            if (streak >= 3) { q.push(...winners); finalWinners = [q.shift(), q.shift(), q.shift(), q.shift(), q.shift()]; streak = 0; }
-            const nextTeam = [q.shift(), q.shift(), q.shift(), q.shift(), q.shift()];
-            await updateCloud({ players, scoreA: 0, scoreB: 0, teamA: finalWinners, teamB: nextTeam, queue: q.filter(x => x !== undefined), winnerLast: streak === 0 ? null : winner, victoriesStreak: streak });
+        window.finishMatch = (winner) => {
+            [...localState.teamA, ...localState.teamB].forEach(id => {
+                const p = localState.players.find(x => x.id === id);
+                if(p) p.stats.games++;
+            });
+
+            if (winner !== 'Draw') {
+                const winners = winner === 'A' ? localState.teamA : localState.teamB;
+                const losers = winner === 'A' ? localState.teamB : localState.teamA;
+                
+                winners.forEach(id => {
+                    const p = localState.players.find(x => x.id === id);
+                    if(p) p.stats.vit++;
+                });
+
+                localState.winnerLast = winner;
+                localState.victoriesStreak = (localState.winnerLast === winner) ? localState.victoriesStreak + 1 : 1;
+
+                localState.queue.push(...losers);
+
+                if (localState.victoriesStreak >= 3) {
+                    localState.queue.push(...winners);
+                    localState.teamA = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                    localState.teamB = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                    localState.victoriesStreak = 0;
+                    localState.winnerLast = null;
+                } else {
+                    const nextChallengers = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                    if (winner === 'A') {
+                        localState.teamB = nextChallengers;
+                    } else {
+                        localState.teamA = nextChallengers;
+                    }
+                }
+            } else {
+                localState.queue.push(...localState.teamA, ...localState.teamB);
+                localState.teamA = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                localState.teamB = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                localState.victoriesStreak = 0;
+            }
+
+            localState.scoreA = 0;
+            localState.scoreB = 0;
+            saveToLocal();
         };
 
-        // --- Camera & Modal ---
+        // --- Câmara & Modal ---
         let stream = null;
         window.startCamera = async () => {
-            try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                const video = document.getElementById('camera-preview'); video.srcObject = stream;
-                video.classList.remove('hidden'); document.getElementById('camera-placeholder').classList.add('hidden');
-                document.getElementById('snap-btn').classList.remove('hidden'); video.play();
-            } catch (e) { console.error(e); }
+            try { 
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                const video = document.getElementById('camera-preview'); 
+                video.srcObject = stream;
+                video.classList.remove('hidden'); 
+                document.getElementById('camera-placeholder').classList.add('hidden');
+                document.getElementById('snap-btn').classList.remove('hidden'); 
+                video.play();
+            } catch (e) { console.error("Câmara não disponível", e); }
         };
+
         window.takePhoto = () => {
-            const video = document.getElementById('camera-preview'); const canvas = document.getElementById('photo-canvas');
-            const preview = document.getElementById('photo-preview'); canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0); preview.src = canvas.toDataURL('image/jpeg');
-            preview.classList.remove('hidden'); video.classList.add('hidden'); document.getElementById('snap-btn').classList.add('hidden');
+            const video = document.getElementById('camera-preview'); 
+            const canvas = document.getElementById('photo-canvas');
+            const preview = document.getElementById('photo-preview'); 
+            canvas.width = video.videoWidth; 
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0); 
+            preview.src = canvas.toDataURL('image/jpeg');
+            preview.classList.remove('hidden'); 
+            video.classList.add('hidden'); 
+            document.getElementById('snap-btn').classList.add('hidden');
             if (stream) stream.getTracks().forEach(t => t.stop());
         };
-        function showModal(h) { document.getElementById('modal-content').innerHTML = h; document.getElementById('modal-overlay').classList.remove('hidden'); }
+
+        function showModal(h) { 
+            document.getElementById('modal-content').innerHTML = h; 
+            document.getElementById('modal-overlay').classList.remove('hidden'); 
+        }
+
         window.closeModal = () => document.getElementById('modal-overlay').classList.add('hidden');
 
         // Timer
+        let timerValue = 600;
+        let timerInterval = null;
         window.toggleTimer = () => {
-            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-            else { timerInterval = setInterval(() => { if (timerValue > 0) { timerValue--; const m = Math.floor(timerValue/60), s = timerValue%60; document.getElementById('timer-display').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; } }, 1000); }
+            if (timerInterval) { 
+                clearInterval(timerInterval); 
+                timerInterval = null; 
+            } else { 
+                timerInterval = setInterval(() => { 
+                    if (timerValue > 0) { 
+                        timerValue--; 
+                        const m = Math.floor(timerValue/60), s = timerValue%60; 
+                        document.getElementById('timer-display').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; 
+                    } else {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                        document.getElementById('timer-btn').innerText = 'INICIAR';
+                    }
+                }, 1000); 
+            }
             document.getElementById('timer-btn').innerText = timerInterval ? 'PAUSAR' : 'INICIAR';
         };
-        window.resetTimer = () => { timerValue = 600; document.getElementById('timer-display').innerText = "10:00"; };
+
+        window.resetTimer = () => { 
+            timerValue = 600; 
+            document.getElementById('timer-display').innerText = "10:00"; 
+            if(timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                document.getElementById('timer-btn').innerText = 'INICIAR';
+            }
+        };
 
         setInterval(() => {
             if (localState.punishments.length > 0) {
                 const now = Date.now();
                 const filtered = localState.punishments.filter(p => p.endTime > now);
-                if (filtered.length !== localState.punishments.length) updateCloud({ punishments: filtered });
+                if (filtered.length !== localState.punishments.length) {
+                    localState.punishments = filtered;
+                    saveToLocal();
+                }
                 renderPunishments();
             }
         }, 1000);
 
-        init();
+        loadFromLocal();
     </script>
 </body>
 </html>
