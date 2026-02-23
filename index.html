@@ -10,30 +10,33 @@
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         .timer-glow { text-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
         .bg-pitch { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); }
-        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .hidden { display: none; }
     </style>
 </head>
 <body class="pb-20">
 
-    <!-- Navigation -->
+    <!-- Navegação -->
     <nav class="bg-pitch text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-lg">
         <h1 class="text-xl font-bold tracking-tighter">ASMETO <span class="text-yellow-400">2026</span></h1>
         <div class="flex gap-2">
-            <button onclick="switchTab('stats')" class="p-2 hover:bg-blue-700 rounded-lg">📊</button>
-            <button onclick="switchTab('match')" class="p-2 hover:bg-blue-700 rounded-lg">⚽</button>
-            <button onclick="switchTab('config')" class="p-2 hover:bg-blue-700 rounded-lg">⚙️</button>
+            <button onclick="switchTab('stats')" class="p-2 hover:bg-blue-700 rounded-lg" title="Estatísticas">📊</button>
+            <button onclick="switchTab('match')" class="p-2 hover:bg-blue-700 rounded-lg" title="Partida">⚽</button>
+            <button onclick="switchTab('config')" class="p-2 hover:bg-blue-700 rounded-lg" title="Configurações">⚙️</button>
         </div>
     </nav>
 
-    <!-- App Container -->
+    <!-- Estado de Ligação -->
+    <div id="auth-status" class="bg-yellow-100 text-yellow-800 text-[10px] text-center py-1 font-bold">LIGANDO AO SERVIDOR...</div>
+
+    <!-- Conteúdo Principal -->
     <main id="app-content" class="max-w-4xl mx-auto p-4">
         
-        <!-- Tab: Início / Sessões -->
+        <!-- Tab: Configuração -->
         <section id="tab-config" class="space-y-6">
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">🚀 Nova Pelada</h2>
-                <input id="session-name" type="text" placeholder="Nome da Pelada (ex: Quarta-feira)" class="w-full p-3 border rounded-xl mb-4 focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="createSession()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">CRIAR SESSÃO</button>
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">🚀 Nova Pelada Pública</h2>
+                <input id="session-name" type="text" placeholder="Nome da Pelada (ex: Pelada de Quarta)" class="w-full p-3 border rounded-xl mb-4 focus:ring-2 focus:ring-blue-500 outline-none">
+                <button onclick="createNewSession()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition">CRIAR SESSÃO PÚBLICA</button>
             </div>
 
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -45,7 +48,7 @@
                         <img id="photo-preview" class="hidden w-full h-full object-cover">
                         <div id="camera-placeholder" class="text-center">
                             <span class="text-4xl">📸</span>
-                            <p class="text-xs text-gray-500 mt-2">Clique para iniciar câmera</p>
+                            <p class="text-xs text-gray-500 mt-2">Toque para usar a câmera</p>
                         </div>
                         <button onclick="startCamera()" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer"></button>
                     </div>
@@ -55,16 +58,15 @@
                     <button onclick="registerPlayer()" class="bg-green-600 text-white font-bold py-3 rounded-xl">CADASTRAR E ENTRAR NA FILA</button>
                 </div>
             </div>
-
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-bold mb-4">📂 Exportar Dados (CSV)</h2>
-                <button onclick="exportToCSV()" class="w-full border-2 border-blue-600 text-blue-600 font-bold py-3 rounded-xl">BAIXAR RELATÓRIO LOCAL</button>
-            </div>
         </section>
 
-        <!-- Tab: Match Day -->
+        <!-- Tab: Partida -->
         <section id="tab-match" class="hidden space-y-6">
-            <!-- Cronômetro -->
+            <div class="text-center">
+                <h2 id="current-session-display" class="text-xl font-black text-blue-900">Nenhuma Sessão Ativa</h2>
+                <p id="session-date" class="text-xs text-gray-500 uppercase tracking-widest"></p>
+            </div>
+
             <div class="bg-pitch text-white p-6 rounded-3xl shadow-xl text-center">
                 <div id="timer-display" class="text-6xl font-black mb-4 timer-glow tracking-widest">10:00</div>
                 <div class="flex justify-center gap-4">
@@ -73,44 +75,40 @@
                 </div>
             </div>
 
-            <!-- Placar -->
             <div class="flex items-center justify-between gap-4">
                 <div class="flex-1 bg-white p-4 rounded-2xl shadow text-center border-b-4 border-blue-500">
-                    <h3 class="text-xs font-bold text-gray-500">TIME A</h3>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase">Time A</h3>
                     <div id="score-a" class="text-4xl font-black">0</div>
                     <button onclick="openGoalModal('A')" class="mt-2 bg-blue-100 text-blue-600 p-2 rounded-lg text-sm font-bold w-full">+ GOL</button>
                 </div>
-                <div class="text-2xl font-black text-gray-400">VS</div>
+                <div class="text-2xl font-black text-gray-300 italic">VS</div>
                 <div class="flex-1 bg-white p-4 rounded-2xl shadow text-center border-b-4 border-red-500">
-                    <h3 class="text-xs font-bold text-gray-500">TIME B</h3>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase">Time B</h3>
                     <div id="score-b" class="text-4xl font-black">0</div>
                     <button onclick="openGoalModal('B')" class="mt-2 bg-red-100 text-red-600 p-2 rounded-lg text-sm font-bold w-full">+ GOL</button>
                 </div>
             </div>
 
-            <!-- Times em Campo -->
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="space-y-2">
-                    <h4 class="font-bold text-sm text-blue-800 uppercase px-1">Escalação A</h4>
-                    <div id="team-a-list" class="space-y-1 text-sm"></div>
+                    <h4 class="font-bold text-sm text-blue-800 uppercase px-1">Escalação Time A</h4>
+                    <div id="team-a-list" class="space-y-1"></div>
                 </div>
                 <div class="space-y-2">
-                    <h4 class="font-bold text-sm text-red-800 uppercase px-1">Escalação B</h4>
-                    <div id="team-b-list" class="space-y-1 text-sm"></div>
+                    <h4 class="font-bold text-sm text-red-800 uppercase px-1">Escalação Time B</h4>
+                    <div id="team-b-list" class="space-y-1"></div>
                 </div>
             </div>
 
-            <!-- Punições Ativas (VM) -->
             <div id="punishment-section" class="hidden bg-yellow-50 p-4 rounded-2xl border border-yellow-200">
-                <h4 class="text-sm font-bold text-yellow-800 mb-2">⚖️ Suspensões Temporárias (VM)</h4>
-                <div id="punished-list" class="space-y-2"></div>
+                <h4 class="text-sm font-bold text-yellow-800 mb-2">⚖️ Suspensões (VM)</h4>
+                <div id="punished-list" class="space-y-2 text-xs"></div>
             </div>
 
-            <!-- Fila de Espera -->
             <div class="bg-white p-6 rounded-2xl shadow-sm">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="font-bold">⏳ Próximos da Fila</h2>
-                    <span id="queue-count" class="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold">0 jogadores</span>
+                    <h2 class="font-bold">⏳ Fila de Espera</h2>
+                    <span id="queue-count" class="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold">0</span>
                 </div>
                 <div id="waiting-queue" class="space-y-2"></div>
             </div>
@@ -125,17 +123,17 @@
         <!-- Tab: Stats -->
         <section id="tab-stats" class="hidden space-y-4">
             <div class="bg-white p-4 rounded-2xl shadow-sm overflow-hidden">
-                <h2 class="text-xl font-bold mb-4">🏆 Ranking Geral</h2>
+                <h2 class="text-xl font-bold mb-4">🏆 Ranking ASMETO 2026</h2>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
-                        <thead class="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                        <thead class="bg-gray-50 text-gray-400 uppercase text-[10px]">
                             <tr>
-                                <th class="p-2">Atleta</th>
-                                <th class="p-2">Gols</th>
-                                <th class="p-2">Ast</th>
-                                <th class="p-2">Vit</th>
-                                <th class="p-2">CA/CV</th>
-                                <th class="p-2">Apr %</th>
+                                <th class="p-3">Atleta</th>
+                                <th class="p-3">Gols</th>
+                                <th class="p-3">Ast</th>
+                                <th class="p-3">Vit</th>
+                                <th class="p-3">CV/CA</th>
+                                <th class="p-3">Aprov.</th>
                             </tr>
                         </thead>
                         <tbody id="stats-table-body" class="divide-y divide-gray-100"></tbody>
@@ -143,481 +141,316 @@
                 </div>
             </div>
         </section>
-
     </main>
 
     <!-- Modais -->
-    <div id="modal-overlay" class="fixed inset-0 bg-black/60 hidden z-[60] flex items-center justify-center p-4">
+    <div id="modal-overlay" class="fixed inset-0 bg-black/70 hidden z-[60] flex items-center justify-center p-4">
         <div id="modal-content" class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"></div>
     </div>
 
-    <!-- Script Application -->
-    <script>
-        // State Management
-        let state = {
-            currentSession: null,
-            players: [], // { id, name, photo, presence: bool, stats: {g, a, ca, cv, vit, games} }
-            queue: [], // ids of players waiting
-            teamA: [], // ids
+    <!-- Scripts Firebase e Lógica -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'asmeto-2026';
+
+        // Estado Local
+        let localState = {
+            session: { name: 'Nenhuma', date: '', active: false },
+            players: [],
+            teamA: [],
             teamB: [],
+            queue: [],
             scoreA: 0,
             scoreB: 0,
-            timer: 600,
-            timerRunning: false,
-            victoriesStreak: 0,
+            punishments: [],
             winnerLast: null,
-            punishments: [], // { id, endTime, type }
+            victoriesStreak: 0
         };
 
-        const STORAGE_KEY = 'ASMETO_FOOTBALL_DATA';
-        const VM_TIME = 90; // seconds
+        let user = null;
+        let timerValue = 600;
+        let timerInterval = null;
 
-        // Initialize
-        window.onload = () => {
-            loadData();
-            switchTab('config');
-            setInterval(updateTick, 1000);
+        // Funções de Ajuda para Firestore (Regra 1 - Caminhos Estritos)
+        const getMasterDocRef = () => {
+            // No ambiente Canvas, o appId pode ser um caminho. Garantimos 6 segmentos (par) para o documento.
+            // Caminho: artifacts -> {appId} -> public -> data -> sessao -> principal
+            return doc(db, 'artifacts', appId, 'public', 'data', 'sessao', 'principal');
         };
 
-        // --- Core Functions ---
-
-        function loadData() {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                state = { ...state, ...parsed };
-                // Reset match specific state if no active session
-                state.timerRunning = false;
+        // --- Inicialização e Auth ---
+        async function init() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Erro Auth:", err);
+                document.getElementById('auth-status').innerText = "ERRO DE LIGAÇÃO";
             }
         }
 
-        function saveData() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        onAuthStateChanged(auth, (u) => {
+            user = u;
+            if (user) {
+                document.getElementById('auth-status').innerText = `LIGADO - SESSÃO PÚBLICA`;
+                setupSync();
+            }
+        });
+
+        // --- Sincronização ---
+        function setupSync() {
+            const masterDoc = getMasterDocRef();
+            
+            onSnapshot(masterDoc, (docSnap) => {
+                if (docSnap.exists()) {
+                    localState = { ...localState, ...docSnap.data() };
+                    updateUI();
+                } else {
+                    setDoc(masterDoc, localState);
+                }
+            }, (err) => {
+                console.error("Erro no Snapshot:", err);
+            });
         }
 
-        function switchTab(tabId) {
+        async function updateCloud(data) {
+            if (!user) return;
+            const masterDoc = getMasterDocRef();
+            try {
+                await updateDoc(masterDoc, data);
+            } catch (e) {
+                await setDoc(masterDoc, { ...localState, ...data }, { merge: true });
+            }
+        }
+
+        // --- UI Logic ---
+        window.switchTab = (tabId) => {
             document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
             document.getElementById(`tab-${tabId}`).classList.remove('hidden');
-            if(tabId === 'stats') renderStats();
-            if(tabId === 'match') renderMatch();
-        }
+        };
 
-        // --- Camera Logic ---
-        let stream = null;
-        async function startCamera() {
-            const video = document.getElementById('camera-preview');
-            const placeholder = document.getElementById('camera-placeholder');
-            const snapBtn = document.getElementById('snap-btn');
-            
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                video.srcObject = stream;
-                video.classList.remove('hidden');
-                placeholder.classList.add('hidden');
-                snapBtn.classList.remove('hidden');
-                video.play();
-            } catch (err) {
-                alert("Erro ao acessar câmera: " + err);
-            }
-        }
+        function updateUI() {
+            document.getElementById('current-session-display').innerText = localState.session.name;
+            document.getElementById('session-date').innerText = localState.session.date;
+            document.getElementById('score-a').innerText = localState.scoreA;
+            document.getElementById('score-b').innerText = localState.scoreB;
+            document.getElementById('queue-count').innerText = localState.queue.length;
 
-        function takePhoto() {
-            const video = document.getElementById('camera-preview');
-            const canvas = document.getElementById('photo-canvas');
-            const preview = document.getElementById('photo-preview');
-            const snapBtn = document.getElementById('snap-btn');
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            
-            const dataUrl = canvas.toDataURL('image/jpeg');
-            preview.src = dataUrl;
-            preview.classList.remove('hidden');
-            video.classList.add('hidden');
-            snapBtn.classList.add('hidden');
-            
-            if (stream) stream.getTracks().forEach(track => track.stop());
-        }
-
-        // --- Session & Players ---
-
-        function createSession() {
-            const name = document.getElementById('session-name').value;
-            if(!name) return alert("Dê um nome à pelada!");
-            
-            state.currentSession = { name, date: new Date().toLocaleDateString() };
-            // Reset daily state
-            state.teamA = [];
-            state.teamB = [];
-            state.scoreA = 0;
-            state.scoreB = 0;
-            state.queue = state.players.map(p => p.id); // All previously registered players start in queue
-            
-            saveData();
-            alert("Sessão iniciada!");
-            switchTab('match');
-        }
-
-        function registerPlayer() {
-            const name = document.getElementById('player-name').value;
-            const photo = document.getElementById('photo-preview').src;
-            if(!name) return alert("Nome é obrigatório!");
-
-            const newPlayer = {
-                id: Date.now().toString(),
-                name,
-                photo: photo.startsWith('data') ? photo : null,
-                stats: { g: 0, a: 0, ca: 0, cv: 0, vit: 0, games: 0 }
-            };
-
-            state.players.push(newPlayer);
-            
-            // Se já houver sessão, vai pra frente da fila (prioridade conforme requisito)
-            if(state.currentSession) {
-                state.queue.unshift(newPlayer.id);
-            } else {
-                state.queue.push(newPlayer.id);
-            }
-
-            saveData();
-            document.getElementById('player-name').value = '';
-            document.getElementById('photo-preview').classList.add('hidden');
-            document.getElementById('camera-placeholder').classList.remove('hidden');
-            
-            if(state.teamA.length < 7 || state.teamB.length < 7) { // Auto-fill if empty
-                drawTeams();
-            }
-            
-            renderMatch();
-            alert("Jogador cadastrado!");
-        }
-
-        // --- Match Logic ---
-
-        function drawTeams() {
-            // Fill Team A then Team B based on defined size (ex: 7 vs 7)
-            const size = 7; 
-            while(state.teamA.length < size && state.queue.length > 0) {
-                state.teamA.push(state.queue.shift());
-            }
-            while(state.teamB.length < size && state.queue.length > 0) {
-                state.teamB.push(state.queue.shift());
-            }
-            saveData();
-        }
-
-        function renderMatch() {
-            const queueEl = document.getElementById('waiting-queue');
-            const teamAEl = document.getElementById('team-a-list');
-            const teamBEl = document.getElementById('team-b-list');
-            
-            document.getElementById('score-a').innerText = state.scoreA;
-            document.getElementById('score-b').innerText = state.scoreB;
-            document.getElementById('queue-count').innerText = `${state.queue.length} jogadores`;
-
-            const renderPlayerRow = (id, team) => {
-                const p = state.players.find(x => x.id === id);
-                if(!p) return '';
-                const isPunished = state.punishments.some(pun => pun.id === id);
+            const renderP = (id, team) => {
+                const p = localState.players.find(x => x.id === id);
+                if (!p) return '';
+                const isP = localState.punishments.some(pun => pun.id === id);
                 return `
-                    <div class="flex items-center justify-between bg-white p-2 rounded-lg border border-gray-100 ${isPunished ? 'opacity-50 grayscale' : ''}">
+                    <div class="flex items-center justify-between bg-white p-2 rounded-xl border border-gray-100 shadow-sm ${isP ? 'opacity-40 grayscale' : ''}">
                         <div class="flex items-center gap-2">
-                            <img src="${p.photo || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full object-cover">
-                            <span class="font-large">${p.name}</span>
+                            <img src="${p.photo || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full border border-gray-200 object-cover">
+                            <span class="font-bold text-sm">${p.name}</span>
                         </div>
                         <div class="flex gap-1">
-                            <button onclick="cardPlayer('${id}', 'yellow')" class="w-6 h-8 bg-yellow-400 rounded-sm"></button>
-                            <button onclick="cardPlayer('${id}', 'red')" class="w-6 h-8 bg-red-600 rounded-sm"></button>
-                            <button onclick="substitutePlayer('${id}', '${team}')" class="text-lg">🔄</button>
+                            <button onclick="window.card('${id}', 'yellow')" class="w-4 h-6 bg-yellow-400 rounded-sm"></button>
+                            <button onclick="window.card('${id}', 'red')" class="w-4 h-6 bg-red-600 rounded-sm"></button>
+                            <button onclick="window.sub('${id}', '${team}')" class="text-xs px-1">🔄</button>
                         </div>
                     </div>
                 `;
             };
 
-            teamAEl.innerHTML = state.teamA.map(id => renderPlayerRow(id, 'A')).join('');
-            teamBEl.innerHTML = state.teamB.map(id => renderPlayerRow(id, 'B')).join('');
+            document.getElementById('team-a-list').innerHTML = localState.teamA.map(id => renderP(id, 'A')).join('');
+            document.getElementById('team-b-list').innerHTML = localState.teamB.map(id => renderP(id, 'B')).join('');
             
-            queueEl.innerHTML = state.queue.map(id => {
-                const p = state.players.find(x => x.id === id);
+            document.getElementById('waiting-queue').innerHTML = localState.queue.map((id, idx) => {
+                const p = localState.players.find(x => x.id === id);
                 return `
-                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
-                        <span class="font-bold text-gray-400 mr-2">#${state.queue.indexOf(id)+1}</span>
-                        <div class="flex-1 font-semibold">${p.name}</div>
-                        <button onclick="removeFromQueue('${id}')" class="text-red-400 text-xs font-bold uppercase">Remover</button>
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
+                        <span class="text-xs font-black text-gray-300">#${idx + 1}</span>
+                        <span class="flex-1 px-3 font-semibold text-gray-700">${p.name}</span>
+                        <button onclick="window.removeQueue('${id}')" class="text-[10px] text-red-500 font-bold uppercase">Sair</button>
                     </div>
                 `;
             }).join('');
 
+            renderStats();
             renderPunishments();
         }
 
-        function substitutePlayer(id, team) {
-            if(state.queue.length === 0) return alert("Fila vazia!");
-            
-            const next = state.queue.shift();
-            if(team === 'A') {
-                state.teamA = state.teamA.map(x => x === id ? next : x);
-            } else {
-                state.teamB = state.teamB.map(x => x === id ? next : x);
-            }
-            state.queue.push(id); // Goes to end of queue
-            saveData();
-            renderMatch();
-        }
-
-        function removeFromQueue(id) {
-            state.queue = state.queue.filter(x => x !== id);
-            saveData();
-            renderMatch();
-        }
-
-        // --- Timer & Match Day ---
-
-        function toggleTimer() {
-            state.timerRunning = !state.timerRunning;
-            document.getElementById('timer-btn').innerText = state.timerRunning ? 'PAUSAR' : 'INICIAR';
-        }
-
-        function resetTimer() {
-            state.timer = 600;
-            state.timerRunning = false;
-            updateTimerDisplay();
-            document.getElementById('timer-btn').innerText = 'INICIAR';
-        }
-
-        function updateTick() {
-            if(state.timerRunning && state.timer > 0) {
-                state.timer--;
-                updateTimerDisplay();
-            }
-
-            // Update Punições
-            const now = Date.now();
-            const originalCount = state.punishments.length;
-            state.punishments = state.punishments.filter(p => p.endTime > now);
-            
-            if(state.punishments.length !== originalCount) {
-                renderMatch();
-            }
-        }
-
-        function updateTimerDisplay() {
-            const m = Math.floor(state.timer / 60);
-            const s = state.timer % 60;
-            document.getElementById('timer-display').innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        }
-
-        function openGoalModal(team) {
-            const teamPlayers = team === 'A' ? state.teamA : state.teamB;
-            const players = teamPlayers.map(id => state.players.find(p => p.id === id));
-            
-            let html = `<h2 class="text-xl font-bold mb-4">Gol do Time ${team}</h2>`;
-            html += `<p class="text-sm text-gray-500 mb-2">Quem marcou?</p>`;
-            html += `<div class="grid grid-cols-1 gap-2 mb-4">`;
-            players.forEach(p => {
-                html += `<button onclick="registerGoal('${team}', '${p.id}')" class="p-3 bg-gray-100 rounded-xl hover:bg-blue-50 font-bold">${p.name}</button>`;
+        function renderStats() {
+            const tbody = document.getElementById('stats-table-body');
+            const sorted = [...localState.players].sort((a,b) => {
+                const aprA = a.stats.games ? a.stats.vit / a.stats.games : 0;
+                const aprB = b.stats.games ? b.stats.vit / b.stats.games : 0;
+                return aprB - aprA;
             });
-            html += `</div><button onclick="closeModal()" class="w-full text-gray-400 font-bold">Cancelar</button>`;
-            
-            showModal(html);
-        }
 
-        function registerGoal(team, scorerId) {
-            // Step 2: Assistência
-            const teamPlayers = team === 'A' ? state.teamA : state.teamB;
-            const others = teamPlayers.filter(id => id !== scorerId).map(id => state.players.find(p => p.id === id));
-            
-            let html = `<h2 class="text-xl font-bold mb-4">Assistência</h2>`;
-            html += `<p class="text-sm text-gray-500 mb-2">Quem deu o passe?</p>`;
-            html += `<div class="grid grid-cols-1 gap-2 mb-4">`;
-            others.forEach(p => {
-                html += `<button onclick="completeGoal('${team}', '${scorerId}', '${p.id}')" class="p-3 bg-gray-100 rounded-xl font-bold">${p.name}</button>`;
-            });
-            html += `<button onclick="completeGoal('${team}', '${scorerId}', null)" class="p-3 bg-gray-200 rounded-xl font-bold text-gray-600 italic">Sem assistência</button>`;
-            html += `</div>`;
-            
-            showModal(html);
-        }
-
-        function completeGoal(team, scorerId, assistId) {
-            if(team === 'A') state.scoreA++;
-            else state.scoreB++;
-            
-            const scorer = state.players.find(p => p.id === scorerId);
-            scorer.stats.g++;
-            
-            if(assistId) {
-                const assister = state.players.find(p => p.id === assistId);
-                assister.stats.a++;
-            }
-            
-            closeModal();
-            saveData();
-            renderMatch();
-        }
-
-        function cardPlayer(id, type) {
-            const p = state.players.find(x => x.id === id);
-            if(type === 'yellow') {
-                p.stats.ca++;
-                // 2 yellows = Red
-                if(p.stats.ca % 2 === 0) applyPunishment(id, 'Red (2x Amarelo)');
-            } else {
-                p.stats.cv++;
-                applyPunishment(id, 'Vermelho');
-            }
-            saveData();
-            renderMatch();
-        }
-
-        function applyPunishment(id, type) {
-            state.punishments.push({
-                id,
-                type,
-                endTime: Date.now() + (VM_TIME * 1000)
-            });
-            renderMatch();
+            tbody.innerHTML = sorted.map(p => {
+                const apr = p.stats.games ? Math.round((p.stats.vit / p.stats.games) * 100) : 0;
+                return `<tr class="text-xs"><td class="p-3 font-bold">${p.name}</td><td class="p-3">${p.stats.g}</td><td class="p-3 text-gray-400">${p.stats.a}</td><td class="p-3 font-bold text-green-600">${p.stats.vit}</td><td class="p-3 text-gray-400">${p.stats.cv}/${p.stats.ca}</td><td class="p-3 font-black text-blue-700">${apr}%</td></tr>`;
+            }).join('');
         }
 
         function renderPunishments() {
             const list = document.getElementById('punished-list');
             const section = document.getElementById('punishment-section');
-            
-            if(state.punishments.length === 0) {
-                section.classList.add('hidden');
-                return;
-            }
-            
+            if (localState.punishments.length === 0) { section.classList.add('hidden'); return; }
             section.classList.remove('hidden');
-            list.innerHTML = state.punishments.map(p => {
-                const player = state.players.find(x => x.id === p.id);
-                const timeLeft = Math.max(0, Math.ceil((p.endTime - Date.now()) / 1000));
-                return `
-                    <div class="flex justify-between items-center text-sm font-bold bg-white p-2 rounded-lg">
-                        <span class="text-red-900">⚠️ ${player.name} (${p.type})</span>
-                        <span class="bg-yellow-400 px-2 py-1 rounded">${timeLeft}s</span>
-                    </div>
-                `;
+            const now = Date.now();
+            list.innerHTML = localState.punishments.map(p => {
+                const player = localState.players.find(x => x.id === p.id);
+                const seconds = Math.max(0, Math.ceil((p.endTime - now) / 1000));
+                return `<div class="bg-white p-2 rounded flex justify-between"><span>⚠️ ${player?.name} (${p.type})</span> <b>${seconds}s</b></div>`;
             }).join('');
         }
 
-        function finishMatch(winner) {
-            // Apply Stats
-            state.teamA.concat(state.teamB).forEach(id => {
-                state.players.find(p => p.id === id).stats.games++;
+        // --- Game Actions ---
+        window.createNewSession = async () => {
+            const name = document.getElementById('session-name').value;
+            if (!name) return;
+            await updateCloud({
+                session: { name, date: new Date().toLocaleDateString(), active: true },
+                teamA: [], teamB: [], scoreA: 0, scoreB: 0,
+                queue: localState.players.map(p => p.id),
+                winnerLast: null, victoriesStreak: 0
             });
+            switchTab('match');
+        };
 
-            if(winner === 'A') {
-                state.teamA.forEach(id => state.players.find(p => p.id === id).stats.vit++);
-                processRotation('A', 'B');
-            } else if(winner === 'B') {
-                state.teamB.forEach(id => state.players.find(p => p.id === id).stats.vit++);
-                processRotation('B', 'A');
-            } else {
-                // Penalties or Draw? Requisito diz: "será cobrado pênaltis ou declarado uma campeã"
-                // Vamos pedir ao gestor decidir clicando no botão de vitória após penaltis 
-                alert("Decida o vencedor nos pênaltis e clique no botão de vitória correspondente!");
-                return;
-            }
-
-            // Reset for next
-            state.scoreA = 0;
-            state.scoreB = 0;
-            resetTimer();
-            saveData();
-            renderMatch();
-            alert("Partida encerrada! Próximo jogo pronto.");
-        }
-
-        function processRotation(winnerTeam, loserTeam) {
-            const winners = winnerTeam === 'A' ? state.teamA : state.teamB;
-            const losers = loserTeam === 'A' ? state.teamA : state.teamB;
-
-            // Winner logic (max 3 victories)
-            if(state.winnerLast === winnerTeam) {
-                state.victoriesStreak++;
-            } else {
-                state.winnerLast = winnerTeam;
-                state.victoriesStreak = 1;
-            }
-
-            // Losers always go to end of queue
-            state.queue.push(...losers);
+        window.registerPlayer = async () => {
+            const name = document.getElementById('player-name').value;
+            const photo = document.getElementById('photo-preview').src;
+            if (!name) return;
+            const newP = { id: Date.now().toString(), name, photo: photo.startsWith('data') ? photo : null, stats: { g: 0, a: 0, ca: 0, cv: 0, vit: 0, games: 0 } };
+            const updatedPlayers = [...localState.players, newP];
+            const updatedQueue = [...localState.queue, newP.id];
+            await updateCloud({ players: updatedPlayers, queue: updatedQueue });
             
-            let newWinners = [];
-            let newLosers = [];
-
-            if(state.victoriesStreak >= 3) {
-                // Force winners out
-                state.queue.push(...winners);
-                newWinners = [state.queue.shift(), state.queue.shift(), state.queue.shift(), state.queue.shift(), state.queue.shift()];
-                state.victoriesStreak = 0;
-                state.winnerLast = null;
-            } else {
-                newWinners = winners;
+            if (localState.teamA.length < 5 || localState.teamB.length < 5) {
+                const q = [...updatedQueue]; const tA = [...localState.teamA]; const tB = [...localState.teamB];
+                while(tA.length < 5 && q.length > 0) tA.push(q.shift());
+                while(tB.length < 5 && q.length > 0) tB.push(q.shift());
+                await updateCloud({ teamA: tA, teamB: tB, queue: q });
             }
+            document.getElementById('player-name').value = '';
+            document.getElementById('photo-preview').classList.add('hidden');
+        };
 
-            newLosers = [state.queue.shift(), state.queue.shift(), state.queue.shift(), state.queue.shift(), state.queue.shift()];
+        window.openGoalModal = (team) => {
+            const ids = team === 'A' ? localState.teamA : localState.teamB;
+            const players = ids.map(id => localState.players.find(p => p.id === id));
+            let h = `<h2 class="text-xl font-bold mb-4">GOLO TIME ${team}</h2><div class="grid gap-2">`;
+            players.forEach(p => { h += `<button onclick="window.regGoal('${team}', '${p.id}')" class="p-4 bg-blue-50 rounded-xl font-bold">${p.name}</button>`; });
+            h += `</div>`;
+            showModal(h);
+        };
 
-            // Update state
-            state.teamA = newWinners;
-            state.teamB = newLosers;
-            
-            // Re-fill teams if queue was small
-            drawTeams();
-        }
+        window.regGoal = (team, scorerId) => {
+            const ids = team === 'A' ? localState.teamA : localState.teamB;
+            const others = ids.filter(id => id !== scorerId).map(id => localState.players.find(p => p.id === id));
+            let h = `<h2 class="text-xl font-bold mb-4">ASSISTÊNCIA</h2><div class="grid gap-2">`;
+            others.forEach(p => { h += `<button onclick="window.confirmGoal('${team}', '${scorerId}', '${p.id}')" class="p-4 bg-gray-100 rounded-xl font-bold">${p.name}</button>`; });
+            h += `<button onclick="window.confirmGoal('${team}', '${scorerId}', null)" class="p-4 bg-gray-200 rounded-xl">Sem assistência</button></div>`;
+            showModal(h);
+        };
 
-        // --- Stats & Ranking ---
+        window.confirmGoal = async (team, sid, aid) => {
+            const players = [...localState.players];
+            players.find(x => x.id === sid).stats.g++;
+            if (aid) players.find(x => x.id === aid).stats.a++;
+            const up = { players };
+            if (team === 'A') up.scoreA = localState.scoreA + 1; else up.scoreB = localState.scoreB + 1;
+            await updateCloud(up);
+            closeModal();
+        };
 
-        function renderStats() {
-            const body = document.getElementById('stats-table-body');
-            const sorted = [...state.players].sort((a, b) => {
-                const aprA = a.stats.games ? (a.stats.vit / a.stats.games) : 0;
-                const aprB = b.stats.games ? (b.stats.vit / b.stats.games) : 0;
-                return aprB - aprA;
-            });
+        window.card = async (id, type) => {
+            const players = [...localState.players];
+            const p = players.find(x => x.id === id);
+            const pun = [...localState.punishments];
+            if (type === 'yellow') {
+                p.stats.ca++;
+                if (p.stats.ca % 2 === 0) pun.push({ id, type: '2 Amarelos', endTime: Date.now() + 90000 });
+            } else {
+                p.stats.cv++;
+                pun.push({ id, type: 'Vermelho', endTime: Date.now() + 90000 });
+            }
+            await updateCloud({ players, punishments: pun });
+        };
 
-            body.innerHTML = sorted.map(p => {
-                const apr = p.stats.games ? Math.round((p.stats.vit / p.stats.games) * 100) : 0;
-                return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="p-2 font-bold">${p.name}</td>
-                        <td class="p-2">${p.stats.g}</td>
-                        <td class="p-2">${p.stats.a}</td>
-                        <td class="p-2">${p.stats.vit}</td>
-                        <td class="p-2 text-[10px] text-gray-500">${p.stats.ca} / ${p.stats.cv}</td>
-                        <td class="p-2 font-black text-blue-600">${apr}%</td>
-                    </tr>
-                `;
-            }).join('');
-        }
+        window.sub = async (id, team) => {
+            if (localState.queue.length === 0) return;
+            const q = [...localState.queue]; const next = q.shift();
+            const tA = [...localState.teamA]; const tB = [...localState.teamB];
+            if (team === 'A') { const idx = tA.indexOf(id); tA[idx] = next; }
+            else { const idx = tB.indexOf(id); tB[idx] = next; }
+            q.push(id);
+            await updateCloud({ teamA: tA, teamB: tB, queue: q });
+        };
 
-        // --- Export & UI Utils ---
+        window.removeQueue = async (id) => {
+            await updateCloud({ queue: localState.queue.filter(x => x !== id) });
+        };
 
-        function exportToCSV() {
-            let csv = "ID,Nome,Gols,Assistencias,CA,CV,Vitorias,Partidas,Aproveitamento\n";
-            state.players.forEach(p => {
-                const apr = p.stats.games ? (p.stats.vit / p.stats.games).toFixed(2) : 0;
-                csv += `${p.id},${p.name},${p.stats.g},${p.stats.a},${p.stats.ca},${p.stats.cv},${p.stats.vit},${p.stats.games},${apr}\n`;
-            });
-            
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('href', url);
-            a.setAttribute('download', `asmeto_relatorio_${Date.now()}.csv`);
-            a.click();
-        }
+        window.finishMatch = async (winner) => {
+            const players = [...localState.players];
+            [...localState.teamA, ...localState.teamB].forEach(id => players.find(x => x.id === id).stats.games++);
+            if (winner === 'Draw') return;
+            if (winner === 'A') localState.teamA.forEach(id => players.find(x => x.id === id).stats.vit++);
+            else localState.teamB.forEach(id => players.find(x => x.id === id).stats.vit++);
+            const winners = winner === 'A' ? localState.teamA : localState.teamB;
+            const losers = winner === 'A' ? localState.teamB : localState.teamA;
+            const q = [...localState.queue]; q.push(...losers);
+            let streak = localState.winnerLast === winner ? localState.victoriesStreak + 1 : 1;
+            let finalWinners = winners;
+            if (streak >= 3) { q.push(...winners); finalWinners = [q.shift(), q.shift(), q.shift(), q.shift(), q.shift()]; streak = 0; }
+            const nextTeam = [q.shift(), q.shift(), q.shift(), q.shift(), q.shift()];
+            await updateCloud({ players, scoreA: 0, scoreB: 0, teamA: finalWinners, teamB: nextTeam, queue: q.filter(x => x !== undefined), winnerLast: streak === 0 ? null : winner, victoriesStreak: streak });
+        };
 
-        function showModal(content) {
-            document.getElementById('modal-content').innerHTML = content;
-            document.getElementById('modal-overlay').classList.remove('hidden');
-        }
+        // --- Camera & Modal ---
+        let stream = null;
+        window.startCamera = async () => {
+            try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                const video = document.getElementById('camera-preview'); video.srcObject = stream;
+                video.classList.remove('hidden'); document.getElementById('camera-placeholder').classList.add('hidden');
+                document.getElementById('snap-btn').classList.remove('hidden'); video.play();
+            } catch (e) { console.error(e); }
+        };
+        window.takePhoto = () => {
+            const video = document.getElementById('camera-preview'); const canvas = document.getElementById('photo-canvas');
+            const preview = document.getElementById('photo-preview'); canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0); preview.src = canvas.toDataURL('image/jpeg');
+            preview.classList.remove('hidden'); video.classList.add('hidden'); document.getElementById('snap-btn').classList.add('hidden');
+            if (stream) stream.getTracks().forEach(t => t.stop());
+        };
+        function showModal(h) { document.getElementById('modal-content').innerHTML = h; document.getElementById('modal-overlay').classList.remove('hidden'); }
+        window.closeModal = () => document.getElementById('modal-overlay').classList.add('hidden');
 
-        function closeModal() {
-            document.getElementById('modal-overlay').classList.add('hidden');
-        }
+        // Timer
+        window.toggleTimer = () => {
+            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+            else { timerInterval = setInterval(() => { if (timerValue > 0) { timerValue--; const m = Math.floor(timerValue/60), s = timerValue%60; document.getElementById('timer-display').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; } }, 1000); }
+            document.getElementById('timer-btn').innerText = timerInterval ? 'PAUSAR' : 'INICIAR';
+        };
+        window.resetTimer = () => { timerValue = 600; document.getElementById('timer-display').innerText = "10:00"; };
+
+        setInterval(() => {
+            if (localState.punishments.length > 0) {
+                const now = Date.now();
+                const filtered = localState.punishments.filter(p => p.endTime > now);
+                if (filtered.length !== localState.punishments.length) updateCloud({ punishments: filtered });
+                renderPunishments();
+            }
+        }, 1000);
+
+        init();
     </script>
 </body>
 </html>
