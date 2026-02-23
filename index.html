@@ -476,7 +476,7 @@
                     localState.victoriesStreak = 0;
                     localState.winnerLast = null;
                 } else {
-                    const nextChallengers = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                    const nextChallengers = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
                     if (winner === 'A') {
                         localState.teamB = nextChallengers;
                     } else {
@@ -485,8 +485,8 @@
                 }
             } else {
                 localState.queue.push(...localState.teamA, ...localState.teamB);
-                localState.teamA = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
-                localState.teamB = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                localState.teamA = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                localState.teamB = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
                 localState.victoriesStreak = 0;
             }
 
