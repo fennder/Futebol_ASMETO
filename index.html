@@ -499,7 +499,7 @@
         let stream = null;
         window.startCamera = async () => {
             try { 
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 const video = document.getElementById('camera-preview'); 
                 video.srcObject = stream;
                 video.classList.remove('hidden'); 
