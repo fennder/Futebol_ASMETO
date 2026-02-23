@@ -471,8 +471,8 @@
 
                 if (localState.victoriesStreak >= 3) {
                     localState.queue.push(...winners);
-                    localState.teamA = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
-                    localState.teamB = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                    localState.teamA = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
+                    localState.teamB = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
                     localState.victoriesStreak = 0;
                     localState.winnerLast = null;
                 } else {
