@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASMETO 2026 - Gestor de Futebol Local</title>
+    <title>ASMETO 2026 - Gestor Real-Time</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
@@ -25,134 +25,133 @@
         </div>
     </nav>
 
-    <!-- Estado de Ligação (Local) -->
-    <div class="bg-green-100 text-green-800 text-[10px] text-center py-1 font-bold uppercase">Armazenamento Local e CSV Disponível</div>
+    <!-- Estado de Ligação -->
+    <div id="connection-status" class="bg-yellow-100 text-yellow-800 text-[10px] text-center py-1 font-bold uppercase italic">A aguardar autenticação...</div>
 
     <!-- Conteúdo Principal -->
     <main id="app-content" class="max-w-4xl mx-auto p-4">
         
         <!-- Tab: Configuração -->
         <section id="tab-config" class="space-y-6">
-            <!-- Backup e Sincronização CSV -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-blue-500">
-                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">💾 Cópia de Segurança (CSV)</h2>
-                <div class="grid grid-cols-2 gap-4">
-                    <button onclick="exportToCSV()" class="bg-blue-50 text-blue-700 font-bold py-3 rounded-xl border border-blue-200 hover:bg-blue-100 transition flex flex-col items-center gap-1">
-                        <span class="text-xl">📤</span>
-                        <span class="text-[10px] uppercase tracking-wider">Exportar Dados</span>
-                    </button>
-                    <label class="bg-green-50 text-green-700 font-bold py-3 rounded-xl border border-green-200 hover:bg-green-100 transition flex flex-col items-center gap-1 cursor-pointer">
-                        <span class="text-xl">📥</span>
-                        <span class="text-[10px] uppercase tracking-wider">Importar Dados</span>
-                        <input type="file" id="csv-upload" class="hidden" accept=".csv" onchange="importFromCSV(event)">
-                    </label>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">🆔 A tua Identificação (Dono)</h2>
+                <div id="user-id-display" class="text-[10px] font-mono bg-gray-50 p-2 rounded break-all select-all cursor-pointer border border-gray-200" title="Clique para copiar">A carregar ID...</div>
+                <div class="flex justify-between items-center mt-2">
+                    <p class="text-[9px] text-gray-400 uppercase">Endereço de anfitrião local.</p>
+                    <button onclick="resetToMySession()" class="text-[9px] bg-gray-100 px-2 py-1 rounded font-bold text-gray-600 hover:bg-gray-200">REPOR MINHA SESSÃO</button>
                 </div>
-                <p class="text-[10px] text-gray-400 mt-3 text-center uppercase font-medium">Recomendado: Exportar após cada pelada para manter um registo externo.</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-yellow-400">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">🔗 Sincronização</h2>
+                <p class="text-xs text-gray-500 mb-3">Introduz o ID de outro dispositivo para sincronizar dados em tempo real.</p>
+                <div class="flex gap-2">
+                    <input id="join-id-input" type="text" placeholder="Colar ID do anfitrião..." class="flex-1 p-3 border rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-yellow-400">
+                    <button onclick="joinRemoteSession()" class="bg-yellow-400 text-yellow-900 font-bold px-4 rounded-xl hover:bg-yellow-500 transition text-xs uppercase">Ligar</button>
+                </div>
+                <div id="sync-target-info" class="mt-3 text-[10px] text-blue-600 font-bold hidden uppercase"></div>
             </div>
 
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">🚀 Nova Sessão de Jogo</h2>
-                <input id="session-name" type="text" placeholder="Nome da Pelada (ex: Torneio de Verão)" class="w-full p-3 border rounded-xl mb-4 focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="createNewSession()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition uppercase">Criar Nova Sessão</button>
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">🚀 Nova Sessão</h2>
+                <input id="session-name" type="text" placeholder="Nome da Pelada atual" class="w-full p-3 border rounded-xl mb-4 focus:ring-2 focus:ring-blue-500 outline-none">
+                <button onclick="createNewSession()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition uppercase">Criar Sessão</button>
             </div>
 
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-bold mb-4">👥 Registo de Atleta</h2>
+                <h2 class="text-lg font-bold mb-4">👥 Jogadores</h2>
                 <div class="flex flex-col gap-4">
-                    <div class="relative w-full h-48 bg-gray-200 rounded-xl overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-300">
-                        <video id="camera-preview" class="hidden w-full h-full object-cover"></video>
+                    <div class="relative w-full h-40 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-200">
+                        <video id="camera-preview" class="hidden w-full h-full object-cover" playsinline muted></video>
                         <canvas id="photo-canvas" class="hidden"></canvas>
                         <img id="photo-preview" class="hidden w-full h-full object-cover">
                         <div id="camera-placeholder" class="text-center">
-                            <span class="text-4xl">📸</span>
-                            <p class="text-xs text-gray-500 mt-2">Clique para ativar a câmara</p>
+                            <span class="text-3xl">📸</span>
+                            <p class="text-[10px] text-gray-400 mt-2 uppercase font-bold">Ativar Câmara</p>
                         </div>
                         <button onclick="startCamera()" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer"></button>
                     </div>
-                    <button id="snap-btn" onclick="takePhoto()" class="hidden bg-yellow-500 text-white py-2 rounded-lg font-bold uppercase">Capturar Foto</button>
-                    
-                    <input id="player-name" type="text" placeholder="Nome do Jogador" class="p-3 border rounded-xl">
-                    <button onclick="registerPlayer()" class="bg-green-600 text-white font-bold py-3 rounded-xl uppercase">Registar e Entrar na Fila</button>
+                    <button id="snap-btn" onclick="takePhoto()" class="hidden bg-yellow-500 text-white py-2 rounded-lg font-bold uppercase text-xs">Capturar Agora</button>
+                    <input id="player-name" type="text" placeholder="Nome do Jogador" class="p-3 border rounded-xl text-sm">
+                    <button onclick="registerPlayer()" class="bg-green-600 text-white font-bold py-3 rounded-xl uppercase shadow-md hover:bg-green-700">Registar Atleta</button>
                 </div>
             </div>
-
-            <button onclick="resetAllData()" class="w-full text-red-500 text-[10px] font-bold py-2 border border-red-200 rounded-lg hover:bg-red-50 uppercase tracking-widest">⚠️ Apagar Memória Local (Limpar Tudo)</button>
         </section>
 
         <!-- Tab: Partida -->
         <section id="tab-match" class="hidden space-y-6">
             <div class="text-center">
-                <h2 id="current-session-display" class="text-xl font-black text-blue-900">Nenhuma Sessão Ativa</h2>
-                <p id="session-date" class="text-xs text-gray-500 uppercase tracking-widest"></p>
+                <h2 id="current-session-display" class="text-xl font-black text-blue-900 italic uppercase">A carregar...</h2>
+                <p id="session-date" class="text-xs text-gray-400 uppercase tracking-widest"></p>
             </div>
 
             <div class="bg-pitch text-white p-6 rounded-3xl shadow-xl text-center">
                 <div id="timer-display" class="text-6xl font-black mb-4 timer-glow tracking-widest">10:00</div>
                 <div class="flex justify-center gap-4">
-                    <button id="timer-btn" onclick="toggleTimer()" class="bg-white text-blue-900 px-6 py-2 rounded-full font-bold">INICIAR</button>
+                    <button id="timer-btn" onclick="toggleTimer()" class="bg-white text-blue-900 px-6 py-2 rounded-full font-bold shadow-lg">INICIAR</button>
                     <button onclick="resetTimer()" class="bg-blue-400/20 px-6 py-2 rounded-full font-bold">RESET</button>
                 </div>
             </div>
 
             <div class="flex items-center justify-between gap-4">
-                <div class="flex-1 bg-white p-4 rounded-2xl shadow text-center border-b-4 border-blue-500">
-                    <h3 class="text-xs font-bold text-gray-500 uppercase">Equipa A</h3>
-                    <div id="score-a" class="text-4xl font-black">0</div>
-                    <button onclick="openGoalModal('A')" class="mt-2 bg-blue-100 text-blue-600 p-2 rounded-lg text-sm font-bold w-full uppercase">+ Golo</button>
+                <div class="flex-1 bg-white p-4 rounded-2xl shadow-sm text-center border-b-4 border-blue-500">
+                    <h3 class="text-[10px] font-bold text-gray-400 uppercase">Equipa A</h3>
+                    <div id="score-a" class="text-4xl font-black text-blue-900">0</div>
+                    <button onclick="openGoalModal('A')" class="mt-2 bg-blue-50 text-blue-600 p-2 rounded-lg text-[10px] font-black w-full uppercase">GOLO +</button>
                 </div>
-                <div class="text-2xl font-black text-gray-300 italic">VS</div>
-                <div class="flex-1 bg-white p-4 rounded-2xl shadow text-center border-b-4 border-red-500">
-                    <h3 class="text-xs font-bold text-gray-500 uppercase">Equipa B</h3>
-                    <div id="score-b" class="text-4xl font-black">0</div>
-                    <button onclick="openGoalModal('B')" class="mt-2 bg-red-100 text-red-600 p-2 rounded-lg text-sm font-bold w-full uppercase">+ Golo</button>
+                <div class="text-xl font-black text-gray-200 italic">VS</div>
+                <div class="flex-1 bg-white p-4 rounded-2xl shadow-sm text-center border-b-4 border-red-500">
+                    <h3 class="text-[10px] font-bold text-gray-400 uppercase">Equipa B</h3>
+                    <div id="score-b" class="text-4xl font-black text-red-900">0</div>
+                    <button onclick="openGoalModal('B')" class="mt-2 bg-red-50 text-red-600 p-2 rounded-lg text-[10px] font-black w-full uppercase">GOLO +</button>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="space-y-2">
-                    <h4 class="font-bold text-sm text-blue-800 uppercase px-1">Escalação Equipa A</h4>
+                    <h4 class="font-bold text-[10px] text-blue-800 uppercase px-1">Equipa A (Campo)</h4>
                     <div id="team-a-list" class="space-y-1"></div>
                 </div>
                 <div class="space-y-2">
-                    <h4 class="font-bold text-sm text-red-800 uppercase px-1">Escalação Equipa B</h4>
+                    <h4 class="font-bold text-[10px] text-red-800 uppercase px-1">Equipa B (Campo)</h4>
                     <div id="team-b-list" class="space-y-1"></div>
                 </div>
             </div>
 
             <div id="punishment-section" class="hidden bg-yellow-50 p-4 rounded-2xl border border-yellow-200">
-                <h4 class="text-sm font-bold text-yellow-800 mb-2">⚖️ Suspensões Activas</h4>
+                <h4 class="text-[10px] font-bold text-yellow-800 mb-2 uppercase italic tracking-wider">⚖️ Suspensões Ativas</h4>
                 <div id="punished-list" class="space-y-2 text-xs"></div>
             </div>
 
-            <div class="bg-white p-6 rounded-2xl shadow-sm">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="font-bold">⏳ Lista de Espera</h2>
-                    <span id="queue-count" class="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold">0</span>
+                    <h2 class="font-bold uppercase text-[10px] tracking-widest text-gray-400">⏳ Lista de Espera</h2>
+                    <span id="queue-count" class="bg-gray-100 px-3 py-1 rounded-full text-[10px] font-black">0</span>
                 </div>
                 <div id="waiting-queue" class="space-y-2"></div>
             </div>
 
             <div class="flex gap-2">
-                <button onclick="finishMatch('A')" class="flex-1 bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg uppercase">Vitória A</button>
-                <button onclick="finishMatch('Draw')" class="bg-gray-200 text-gray-700 font-bold px-4 rounded-xl uppercase">Empate</button>
-                <button onclick="finishMatch('B')" class="flex-1 bg-red-600 text-white font-bold py-4 rounded-xl shadow-lg uppercase">Vitória B</button>
+                <button onclick="finishMatch('A')" class="flex-1 bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg uppercase text-sm">Vitória A</button>
+                <button onclick="finishMatch('Draw')" class="bg-gray-200 text-gray-600 font-bold px-4 rounded-2xl uppercase text-[10px]">Empate</button>
+                <button onclick="finishMatch('B')" class="flex-1 bg-red-600 text-white font-bold py-4 rounded-2xl shadow-lg uppercase text-sm">Vitória B</button>
             </div>
         </section>
 
         <!-- Tab: Stats -->
         <section id="tab-stats" class="hidden space-y-4">
-            <div class="bg-white p-4 rounded-2xl shadow-sm overflow-hidden">
-                <h2 class="text-xl font-bold mb-4">🏆 Ranking Geral</h2>
+            <div class="bg-white p-4 rounded-2xl shadow-sm">
+                <h2 class="text-lg font-bold mb-4 uppercase tracking-tighter">🏆 Ranking Geral</h2>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-gray-50 text-gray-400 uppercase text-[10px]">
+                    <table class="w-full text-left text-[11px]">
+                        <thead class="bg-gray-50 text-gray-400 uppercase text-[9px]">
                             <tr>
-                                <th class="p-3">Atleta</th>
-                                <th class="p-3 text-center">Golos</th>
-                                <th class="p-3 text-center">Ast</th>
-                                <th class="p-3 text-center">Vit</th>
-                                <th class="p-3 text-center">Cartões</th>
-                                <th class="p-3 text-center">Aprov.</th>
+                                <th class="p-3">Jogador</th>
+                                <th class="p-3 text-center">G</th>
+                                <th class="p-3 text-center">A</th>
+                                <th class="p-3 text-center">V</th>
+                                <th class="p-3 text-center">C</th>
+                                <th class="p-3 text-center">%</th>
                             </tr>
                         </thead>
                         <tbody id="stats-table-body" class="divide-y divide-gray-100"></tbody>
@@ -163,14 +162,29 @@
     </main>
 
     <!-- Modais -->
-    <div id="modal-overlay" class="fixed inset-0 bg-black/70 hidden z-[60] flex items-center justify-center p-4">
+    <div id="modal-overlay" class="fixed inset-0 bg-black/80 hidden z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
         <div id="modal-content" class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl"></div>
     </div>
 
-    <script>
-        // --- Estado Global Local ---
-        let localState = {
-            session: { name: 'Nenhuma', date: '', active: false },
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'asmeto-2026';
+
+        let currentUser = null;
+        let activeSyncId = null; 
+        let unsubscribeSnapshot = null;
+
+        // Estado inicial rigoroso para evitar 'undefined'
+        let globalState = {
+            session: { name: 'Sem Sessão', date: '', active: false },
             players: [],
             teamA: [],
             teamB: [],
@@ -182,131 +196,155 @@
             victoriesStreak: 0
         };
 
-        const STORAGE_KEY = 'asmeto_2026_local_data';
-
-        // --- Persistência LocalStorage ---
-        function loadFromLocal() {
-            const data = localStorage.getItem(STORAGE_KEY);
-            if (data) {
-                localState = JSON.parse(data);
-            }
-            updateUI();
-        }
-
-        function saveToLocal() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(localState));
-            updateUI();
-        }
-
-        // --- Exportação/Importação CSV ---
-        window.exportToCSV = () => {
-            // Criamos um CSV plano. Para dados complexos como fotos, guardamos o estado completo como uma string JSON numa das células
-            // para permitir a reconstrução fiel de todos os campos.
-            const headers = "ASMETO_BACKUP_VERSION,DATA_JSON\n";
-            const jsonString = JSON.stringify(localState);
-            // Escapar aspas para CSV
-            const escapedJson = jsonString.replace(/"/g, '""');
-            const csvContent = headers + `1.0,"${escapedJson}"`;
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", `asmeto_backup_${new Date().toISOString().slice(0,10)}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        };
-
-        window.importFromCSV = (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target.result;
-                try {
-                    // Extrair o JSON que está entre as aspas na segunda linha
-                    const parts = text.split('\n');
-                    if (parts.length < 2) throw new Error("Ficheiro inválido");
-                    
-                    const csvRow = parts[1];
-                    // Remover a versão e as aspas envolventes do JSON
-                    const firstCommaIndex = csvRow.indexOf(',');
-                    let jsonContent = csvRow.substring(firstCommaIndex + 1).trim();
-                    
-                    // Remover as aspas de início e fim e des-escapar as aspas internas
-                    if (jsonContent.startsWith('"') && jsonContent.endsWith('"')) {
-                        jsonContent = jsonContent.substring(1, jsonContent.length - 1);
-                    }
-                    jsonContent = jsonContent.replace(/""/g, '"');
-
-                    const importedData = JSON.parse(jsonContent);
-                    if (confirm("Desejas substituir todos os dados atuais pelos dados deste ficheiro?")) {
-                        localState = importedData;
-                        saveToLocal();
-                        alert("Dados importados com sucesso!");
-                    }
-                } catch (err) {
-                    console.error(err);
-                    alert("Erro ao ler o ficheiro CSV. Certifica-te de que é um backup válido do ASMETO.");
+        // --- Inicialização ---
+        async function init() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
-            };
-            reader.readAsText(file);
-            event.target.value = ''; // Reset do input
-        };
-
-        function resetAllData() {
-            if (confirm("Tens a certeza que queres apagar todos os dados? Esta ação não pode ser revertida.")) {
-                localStorage.removeItem(STORAGE_KEY);
-                location.reload();
+            } catch (error) {
+                console.error("Auth Error:", error);
+                updateConnectionUI("Erro de Ligação", "red");
             }
         }
 
-        // --- Lógica de Interface ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('user-id-display').innerText = user.uid;
+                const savedId = localStorage.getItem('asmeto_sync_id');
+                setupSync(savedId || user.uid);
+            }
+        });
+
+        init();
+
+        // --- Sincronização ---
+        function setupSync(targetUid) {
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+            
+            activeSyncId = targetUid;
+            localStorage.setItem('asmeto_sync_id', targetUid);
+
+            const stateDoc = doc(db, 'artifacts', appId, 'public', 'data', 'matchSettings', targetUid);
+            const isMe = currentUser && targetUid === currentUser.uid;
+            
+            updateConnectionUI(isMe ? "Modo Anfitrião" : `Sincronizado: ${targetUid.substring(0,8)}`, "green");
+
+            const infoEl = document.getElementById('sync-target-info');
+            if (!isMe) {
+                infoEl.innerText = `LIGADO AO HOST: ${targetUid}`;
+                infoEl.classList.remove('hidden');
+            } else {
+                infoEl.classList.add('hidden');
+            }
+
+            unsubscribeSnapshot = onSnapshot(stateDoc, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    // Merge profundo seguro para garantir que campos novos não sejam undefined
+                    globalState = {
+                        session: data.session || { name: 'Sem Sessão', date: '', active: false },
+                        players: data.players || [],
+                        teamA: data.teamA || [],
+                        teamB: data.teamB || [],
+                        queue: data.queue || [],
+                        scoreA: data.scoreA || 0,
+                        scoreB: data.scoreB || 0,
+                        punishments: data.punishments || [],
+                        winnerLast: data.winnerLast || null,
+                        victoriesStreak: data.victoriesStreak || 0
+                    };
+                    updateUI();
+                } else if (isMe) {
+                    syncState(); // Cria o documento inicial se for o dono
+                }
+            }, (error) => {
+                console.error("Snapshot Error:", error);
+                updateConnectionUI("Erro de Permissão", "red");
+            });
+        }
+
+        async function syncState() {
+            if (!currentUser || !activeSyncId) return;
+            try {
+                // Sanitização final: remove qualquer propriedade que possa ser undefined por erro lógico
+                const cleanState = JSON.parse(JSON.stringify(globalState, (key, value) => 
+                    value === undefined ? null : value
+                ));
+                
+                const stateDoc = doc(db, 'artifacts', appId, 'public', 'data', 'matchSettings', activeSyncId);
+                await setDoc(stateDoc, cleanState);
+            } catch (err) {
+                console.error("Save Error:", err);
+            }
+        }
+
+        // --- Ações ---
+        window.joinRemoteSession = () => {
+            const input = document.getElementById('join-id-input');
+            const targetId = input.value.trim();
+            if (targetId && targetId.length > 10) {
+                setupSync(targetId);
+                input.value = "";
+                switchTab('match');
+            }
+        };
+
+        window.resetToMySession = () => {
+            if (currentUser) {
+                setupSync(currentUser.uid);
+                localStorage.removeItem('asmeto_sync_id');
+            }
+        };
+
         window.switchTab = (tabId) => {
             document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
             document.getElementById(`tab-${tabId}`).classList.remove('hidden');
         };
 
         function updateUI() {
-            document.getElementById('current-session-display').innerText = localState.session.name || 'Nenhuma Sessão';
-            document.getElementById('session-date').innerText = localState.session.date || '';
-            document.getElementById('score-a').innerText = localState.scoreA || 0;
-            document.getElementById('score-b').innerText = localState.scoreB || 0;
-            document.getElementById('queue-count').innerText = localState.queue.length;
+            document.getElementById('current-session-display').innerText = globalState.session.name || '---';
+            document.getElementById('session-date').innerText = globalState.session.date || '';
+            document.getElementById('score-a').innerText = globalState.scoreA || 0;
+            document.getElementById('score-b').innerText = globalState.scoreB || 0;
+            document.getElementById('queue-count').innerText = globalState.queue.length;
 
             const renderP = (id, team) => {
-                const p = localState.players.find(x => x.id === id);
+                const p = globalState.players.find(x => x.id === id);
                 if (!p) return '';
-                const isP = localState.punishments.some(pun => pun.id === id);
+                const isP = globalState.punishments.some(pun => pun.id === id);
                 return `
-                    <div class="flex items-center justify-between bg-white p-2 rounded-xl border border-gray-100 shadow-sm ${isP ? 'opacity-40 grayscale' : ''}">
+                    <div class="flex items-center justify-between bg-white p-2 rounded-xl border border-gray-100 shadow-sm ${isP ? 'opacity-30 grayscale' : ''}">
                         <div class="flex items-center gap-2">
-                            <img src="${p.photo || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full border border-gray-200 object-cover">
-                            <span class="font-bold text-sm">${p.name}</span>
+                            <img src="${p.photo || 'https://via.placeholder.com/40'}" class="w-8 h-8 rounded-full border border-gray-100 object-cover bg-gray-100">
+                            <span class="font-bold text-[11px] truncate max-w-[80px]">${p.name}</span>
                         </div>
-                        <div class="flex gap-1">
-                            <button onclick="window.card('${id}', 'yellow')" class="w-4 h-6 bg-yellow-400 rounded-sm"></button>
-                            <button onclick="window.card('${id}', 'red')" class="w-4 h-6 bg-red-600 rounded-sm"></button>
-                            <button onclick="window.sub('${id}', '${team}')" class="text-xs px-1">🔄</button>
+                        <div class="flex gap-1 items-center">
+                            <button onclick="window.card('${id}', 'yellow')" class="w-3 h-5 bg-yellow-400 rounded-sm active:scale-95 transition"></button>
+                            <button onclick="window.card('${id}', 'red')" class="w-3 h-5 bg-red-600 rounded-sm active:scale-95 transition"></button>
+                            <button onclick="window.sub('${id}', '${team}')" class="text-sm px-1">🔄</button>
                         </div>
                     </div>
                 `;
             };
 
-            document.getElementById('team-a-list').innerHTML = localState.teamA.map(id => renderP(id, 'A')).join('');
-            document.getElementById('team-b-list').innerHTML = localState.teamB.map(id => renderP(id, 'B')).join('');
+            document.getElementById('team-a-list').innerHTML = globalState.teamA.map(id => renderP(id, 'A')).join('');
+            document.getElementById('team-b-list').innerHTML = globalState.teamB.map(id => renderP(id, 'B')).join('');
             
-            document.getElementById('waiting-queue').innerHTML = localState.queue.map((id, idx) => {
-                const p = localState.players.find(x => x.id === id);
+            document.getElementById('waiting-queue').innerHTML = globalState.queue.map((id, idx) => {
+                const p = globalState.players.find(x => x.id === id);
                 if (!p) return '';
                 return `
-                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
-                        <span class="text-xs font-black text-gray-300">#${idx + 1}</span>
-                        <span class="flex-1 px-3 font-semibold text-gray-700">${p.name}</span>
-                        <button onclick="window.removeQueue('${id}')" class="text-[10px] text-red-500 font-bold uppercase">Remover</button>
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-transparent">
+                        <span class="text-[9px] font-black text-gray-300">#${idx + 1}</span>
+                        <div class="flex items-center gap-2 flex-1 px-3">
+                             <img src="${p.photo || 'https://via.placeholder.com/30'}" class="w-6 h-6 rounded-full object-cover">
+                             <span class="font-semibold text-gray-700 text-xs">${p.name}</span>
+                        </div>
+                        <button onclick="window.removeQueue('${id}')" class="text-[9px] text-red-400 font-bold uppercase tracking-tighter">Retirar</button>
                     </div>
                 `;
             }).join('');
@@ -317,265 +355,252 @@
 
         function renderStats() {
             const tbody = document.getElementById('stats-table-body');
-            const sorted = [...localState.players].sort((a,b) => {
+            const sorted = [...globalState.players].sort((a,b) => {
                 const aprA = a.stats.games ? a.stats.vit / a.stats.games : 0;
                 const aprB = b.stats.games ? b.stats.vit / b.stats.games : 0;
                 if (aprB !== aprA) return aprB - aprA;
                 return b.stats.g - a.stats.g;
             });
-
-            tbody.innerHTML = sorted.map(p => {
-                const apr = p.stats.games ? Math.round((p.stats.vit / p.stats.games) * 100) : 0;
-                return `
-                    <tr class="text-xs">
-                        <td class="p-3 font-bold">${p.name}</td>
-                        <td class="p-3 text-center">${p.stats.g}</td>
-                        <td class="p-3 text-center text-gray-400">${p.stats.a}</td>
-                        <td class="p-3 text-center font-bold text-green-600">${p.stats.vit}</td>
-                        <td class="p-3 text-center text-gray-400">${p.stats.cv}V / ${p.stats.ca}A</td>
-                        <td class="p-3 text-center font-black text-blue-700">${apr}%</td>
-                    </tr>`;
-            }).join('');
+            tbody.innerHTML = sorted.map(p => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-3 font-bold text-gray-700">${p.name}</td>
+                    <td class="p-3 text-center">${p.stats.g}</td>
+                    <td class="p-3 text-center">${p.stats.a}</td>
+                    <td class="p-3 text-center text-green-600 font-black">${p.stats.vit}</td>
+                    <td class="p-3 text-center text-red-500">${p.stats.cv}</td>
+                    <td class="p-3 text-center font-black bg-gray-50/50">${p.stats.games ? Math.round((p.stats.vit / p.stats.games) * 100) : 0}%</td>
+                </tr>`).join('');
         }
 
         function renderPunishments() {
             const list = document.getElementById('punished-list');
             const section = document.getElementById('punishment-section');
-            if (localState.punishments.length === 0) { section.classList.add('hidden'); return; }
+            if (globalState.punishments.length === 0) { section.classList.add('hidden'); return; }
             section.classList.remove('hidden');
             const now = Date.now();
-            list.innerHTML = localState.punishments.map(p => {
-                const player = localState.players.find(x => x.id === p.id);
+            list.innerHTML = globalState.punishments.map(p => {
+                const player = globalState.players.find(x => x.id === p.id);
                 const seconds = Math.max(0, Math.ceil((p.endTime - now) / 1000));
-                return `<div class="bg-white p-2 rounded flex justify-between"><span>⚠️ ${player?.name} (${p.type})</span> <b>${seconds}s</b></div>`;
+                return `<div class="bg-white p-2 rounded-lg flex justify-between items-center shadow-sm">
+                    <span class="font-bold">⚠️ ${player?.name || 'Jogador'}</span>
+                    <span class="bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded text-[10px] font-black animate-pulse">${seconds}s</span>
+                </div>`;
             }).join('');
         }
 
-        // --- Ações de Jogo ---
-        window.createNewSession = () => {
+        // --- Lógica de Jogo ---
+        window.createNewSession = async () => {
             const name = document.getElementById('session-name').value;
             if (!name) return;
-            localState.session = { name, date: new Date().toLocaleDateString('pt-PT'), active: true };
-            localState.scoreA = 0;
-            localState.scoreB = 0;
-            localState.queue = localState.players.map(p => p.id);
-            localState.winnerLast = null;
-            localState.victoriesStreak = 0;
-            saveToLocal();
+            globalState.session = { name, date: new Date().toLocaleDateString('pt-PT'), active: true };
+            globalState.scoreA = 0;
+            globalState.scoreB = 0;
+            globalState.queue = globalState.players.map(p => p.id);
+            globalState.teamA = [];
+            globalState.teamB = [];
+            
+            while(globalState.teamA.length < 5 && globalState.queue.length > 0) globalState.teamA.push(globalState.queue.shift());
+            while(globalState.teamB.length < 5 && globalState.queue.length > 0) globalState.teamB.push(globalState.queue.shift());
+            
+            await syncState();
             switchTab('match');
         };
 
-        window.registerPlayer = () => {
-            const name = document.getElementById('player-name').value;
-            const photo = document.getElementById('photo-preview').src;
+        window.registerPlayer = async () => {
+            const nameInput = document.getElementById('player-name');
+            const photoImg = document.getElementById('photo-preview');
+            const name = nameInput.value.trim();
             if (!name) return;
+            
             const newP = { 
                 id: Date.now().toString(), 
                 name, 
-                photo: photo.includes('data:image') ? photo : null, 
+                photo: photoImg.src.includes('data:image') ? photoImg.src : null, 
                 stats: { g: 0, a: 0, ca: 0, cv: 0, vit: 0, games: 0 } 
             };
-            localState.players.push(newP);
-            localState.queue.push(newP.id);
             
-            while(localState.teamA.length < 7 && localState.queue.length > 0) localState.teamA.push(localState.queue.shift());
-            while(localState.teamB.length < 7 && localState.queue.length > 0) localState.teamB.push(localState.queue.shift());
+            globalState.players.push(newP);
+            globalState.queue.push(newP.id);
             
-            document.getElementById('player-name').value = '';
-            document.getElementById('photo-preview').classList.add('hidden');
+            if (globalState.session.active) {
+                while(globalState.teamA.length < 5 && globalState.queue.length > 0) globalState.teamA.push(globalState.queue.shift());
+                while(globalState.teamB.length < 5 && globalState.queue.length > 0) globalState.teamB.push(globalState.queue.shift());
+            }
+            
+            nameInput.value = '';
+            photoImg.classList.add('hidden');
             document.getElementById('camera-placeholder').classList.remove('hidden');
-            saveToLocal();
+            await syncState();
         };
 
         window.openGoalModal = (team) => {
-            const ids = team === 'A' ? localState.teamA : localState.teamB;
-            const players = ids.map(id => localState.players.find(p => p.id === id)).filter(p => p);
-            let h = `<h2 class="text-xl font-bold mb-4">GOLO EQUIPA ${team}</h2><div class="grid gap-2">`;
-            players.forEach(p => { h += `<button onclick="window.regGoal('${team}', '${p.id}')" class="p-4 bg-blue-50 rounded-xl font-bold">${p.name}</button>`; });
-            h += `</div>`;
+            const ids = team === 'A' ? globalState.teamA : globalState.teamB;
+            const players = ids.map(id => globalState.players.find(p => p.id === id)).filter(p => p);
+            let h = `<h2 class="text-lg font-black mb-4 text-center uppercase">GOLO EQUIPA ${team}</h2><div class="grid gap-2">`;
+            players.forEach(p => { h += `<button onclick="window.regGoal('${team}', '${p.id}')" class="p-4 bg-blue-600 text-white rounded-2xl font-bold active:scale-95 transition">${p.name}</button>`; });
+            h += `</div><button onclick="closeModal()" class="w-full mt-6 text-gray-400 text-[10px] font-black uppercase">Cancelar</button>`;
             showModal(h);
         };
 
         window.regGoal = (team, scorerId) => {
-            const ids = team === 'A' ? localState.teamA : localState.teamB;
-            const others = ids.filter(id => id !== scorerId).map(id => localState.players.find(p => p.id === id)).filter(p => p);
-            let h = `<h2 class="text-xl font-bold mb-4">ASSISTÊNCIA?</h2><div class="grid gap-2">`;
-            others.forEach(p => { h += `<button onclick="window.confirmGoal('${team}', '${scorerId}', '${p.id}')" class="p-4 bg-gray-100 rounded-xl font-bold">${p.name}</button>`; });
-            h += `<button onclick="window.confirmGoal('${team}', '${scorerId}', null)" class="p-4 bg-gray-200 rounded-xl">Sem assistência</button></div>`;
+            const ids = team === 'A' ? globalState.teamA : globalState.teamB;
+            const others = ids.filter(id => id !== scorerId).map(id => globalState.players.find(p => p.id === id)).filter(p => p);
+            let h = `<h2 class="text-lg font-black mb-4 text-center italic uppercase">ASSISTÊNCIA?</h2><div class="grid gap-2">`;
+            others.forEach(p => { h += `<button onclick="window.confirmGoal('${team}', '${scorerId}', '${p.id}')" class="p-4 bg-gray-100 rounded-2xl font-bold active:scale-95 transition">${p.name}</button>`; });
+            h += `<button onclick="window.confirmGoal('${team}', '${scorerId}', null)" class="p-4 bg-yellow-400 text-yellow-900 font-bold rounded-2xl active:scale-95 transition">SEM ASSISTÊNCIA</button></div>`;
             showModal(h);
         };
 
-        window.confirmGoal = (team, sid, aid) => {
-            const scorer = localState.players.find(x => x.id === sid);
+        window.confirmGoal = async (team, sid, aid) => {
+            const scorer = globalState.players.find(x => x.id === sid);
             if(scorer) scorer.stats.g++;
             if (aid) {
-                const assist = localState.players.find(x => x.id === aid);
+                const assist = globalState.players.find(x => x.id === aid);
                 if(assist) assist.stats.a++;
             }
-            if (team === 'A') localState.scoreA++; else localState.scoreB++;
-            saveToLocal();
+            if (team === 'A') globalState.scoreA++; else globalState.scoreB++;
+            await syncState();
             closeModal();
         };
 
-        window.card = (id, type) => {
-            const p = localState.players.find(x => x.id === id);
+        window.card = async (id, type) => {
+            const p = globalState.players.find(x => x.id === id);
             if (!p) return;
             if (type === 'yellow') {
                 p.stats.ca++;
-                if (p.stats.ca % 2 === 0) localState.punishments.push({ id, type: '2 Amarelos', endTime: Date.now() + 120000 });
+                if (p.stats.ca % 2 === 0) globalState.punishments.push({ id, type: '2 Amarelos', endTime: Date.now() + 120000 });
             } else {
                 p.stats.cv++;
-                localState.punishments.push({ id, type: 'Vermelho', endTime: Date.now() + 180000 });
+                globalState.punishments.push({ id, type: 'Vermelho', endTime: Date.now() + 180000 });
             }
-            saveToLocal();
+            await syncState();
         };
 
-        window.sub = (id, team) => {
-            if (localState.queue.length === 0) return;
-            const next = localState.queue.shift();
-            if (team === 'A') { 
-                const idx = localState.teamA.indexOf(id); 
-                localState.teamA[idx] = next; 
-            } else { 
-                const idx = localState.teamB.indexOf(id); 
-                localState.teamB[idx] = next; 
-            }
-            localState.queue.push(id);
-            saveToLocal();
+        window.sub = async (id, team) => {
+            if (globalState.queue.length === 0) return;
+            const next = globalState.queue.shift();
+            const teamArr = team === 'A' ? globalState.teamA : globalState.teamB;
+            const idx = teamArr.indexOf(id);
+            if (idx > -1) teamArr[idx] = next;
+            globalState.queue.push(id);
+            await syncState();
         };
 
-        window.removeQueue = (id) => {
-            localState.queue = localState.queue.filter(x => x !== id);
-            saveToLocal();
+        window.removeQueue = async (id) => {
+            globalState.queue = globalState.queue.filter(x => x !== id);
+            await syncState();
         };
 
-        window.finishMatch = (winner) => {
-            [...localState.teamA, ...localState.teamB].forEach(id => {
-                const p = localState.players.find(x => x.id === id);
+        window.finishMatch = async (winner) => {
+            [...globalState.teamA, ...globalState.teamB].forEach(id => {
+                const p = globalState.players.find(x => x.id === id);
                 if(p) p.stats.games++;
             });
 
             if (winner !== 'Draw') {
-                const winners = winner === 'A' ? localState.teamA : localState.teamB;
-                const losers = winner === 'A' ? localState.teamB : localState.teamA;
-                
+                const winners = winner === 'A' ? globalState.teamA : globalState.teamB;
+                const losers = winner === 'A' ? globalState.teamB : globalState.teamA;
                 winners.forEach(id => {
-                    const p = localState.players.find(x => x.id === id);
+                    const p = globalState.players.find(x => x.id === id);
                     if(p) p.stats.vit++;
                 });
-
-                localState.winnerLast = winner;
-                localState.victoriesStreak = (localState.winnerLast === winner) ? localState.victoriesStreak + 1 : 1;
-
-                localState.queue.push(...losers);
-
-                if (localState.victoriesStreak >= 3) {
-                    localState.queue.push(...winners);
-                    localState.teamA = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
-                    localState.teamB = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
-                    localState.victoriesStreak = 0;
-                    localState.winnerLast = null;
+                globalState.victoriesStreak = (globalState.winnerLast === winner) ? globalState.victoriesStreak + 1 : 1;
+                globalState.winnerLast = winner;
+                globalState.queue.push(...losers);
+                
+                if (globalState.victoriesStreak >= 3) {
+                    globalState.queue.push(...winners);
+                    globalState.teamA = [globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift()].filter(x => x);
+                    globalState.teamB = [globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift()].filter(x => x);
+                    globalState.victoriesStreak = 0;
+                    globalState.winnerLast = null;
                 } else {
-                    const nextChallengers = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
-                    if (winner === 'A') {
-                        localState.teamB = nextChallengers;
-                    } else {
-                        localState.teamA = nextChallengers;
-                    }
+                    const next = [globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift()].filter(x => x);
+                    if (winner === 'A') globalState.teamB = next; else globalState.teamA = next;
                 }
             } else {
-                localState.queue.push(...localState.teamA, ...localState.teamB);
-                localState.teamA = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
-                localState.teamB = [localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift(), localState.queue.shift()];
-                localState.victoriesStreak = 0;
+                globalState.queue.push(...globalState.teamA, ...globalState.teamB);
+                globalState.teamA = [globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift()].filter(x => x);
+                globalState.teamB = [globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift(), globalState.queue.shift()].filter(x => x);
+                globalState.victoriesStreak = 0;
             }
-
-            localState.scoreA = 0;
-            localState.scoreB = 0;
-            saveToLocal();
+            globalState.scoreA = 0;
+            globalState.scoreB = 0;
+            await syncState();
         };
 
-        // --- Câmara & Modal ---
-        let stream = null;
-        window.startCamera = async () => {
-            try { 
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                const video = document.getElementById('camera-preview'); 
-                video.srcObject = stream;
-                video.classList.remove('hidden'); 
-                document.getElementById('camera-placeholder').classList.add('hidden');
-                document.getElementById('snap-btn').classList.remove('hidden'); 
-                video.play();
-            } catch (e) { console.error("Câmara não disponível", e); }
-        };
-
-        window.takePhoto = () => {
-            const video = document.getElementById('camera-preview'); 
-            const canvas = document.getElementById('photo-canvas');
-            const preview = document.getElementById('photo-preview'); 
-            canvas.width = video.videoWidth; 
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0); 
-            preview.src = canvas.toDataURL('image/jpeg');
-            preview.classList.remove('hidden'); 
-            video.classList.add('hidden'); 
-            document.getElementById('snap-btn').classList.add('hidden');
-            if (stream) stream.getTracks().forEach(t => t.stop());
-        };
+        // --- Utilitários ---
+        function updateConnectionUI(text, color) {
+            const el = document.getElementById('connection-status');
+            el.innerText = text;
+            el.className = `text-[10px] text-center py-1 font-bold uppercase transition-all ${color === 'green' ? 'bg-green-500 text-white' : color === 'red' ? 'bg-red-500 text-white' : 'bg-yellow-100 text-yellow-800'}`;
+        }
 
         function showModal(h) { 
             document.getElementById('modal-content').innerHTML = h; 
             document.getElementById('modal-overlay').classList.remove('hidden'); 
         }
-
         window.closeModal = () => document.getElementById('modal-overlay').classList.add('hidden');
 
         // Timer
         let timerValue = 600;
         let timerInterval = null;
         window.toggleTimer = () => {
-            if (timerInterval) { 
-                clearInterval(timerInterval); 
-                timerInterval = null; 
-            } else { 
-                timerInterval = setInterval(() => { 
-                    if (timerValue > 0) { 
-                        timerValue--; 
-                        const m = Math.floor(timerValue/60), s = timerValue%60; 
-                        document.getElementById('timer-display').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; 
-                    } else {
-                        clearInterval(timerInterval);
-                        timerInterval = null;
-                        document.getElementById('timer-btn').innerText = 'INICIAR';
-                    }
-                }, 1000); 
-            }
+            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+            else { timerInterval = setInterval(() => { 
+                if (timerValue > 0) { 
+                    timerValue--; 
+                    const m = Math.floor(timerValue/60), s = timerValue%60; 
+                    document.getElementById('timer-display').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; 
+                }
+            }, 1000); }
             document.getElementById('timer-btn').innerText = timerInterval ? 'PAUSAR' : 'INICIAR';
         };
 
         window.resetTimer = () => { 
             timerValue = 600; 
             document.getElementById('timer-display').innerText = "10:00"; 
-            if(timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-                document.getElementById('timer-btn').innerText = 'INICIAR';
-            }
+            if(timerInterval) { clearInterval(timerInterval); timerInterval = null; document.getElementById('timer-btn').innerText = 'INICIAR'; }
         };
 
+        // Câmara
+        let currentStream = null;
+        window.startCamera = async () => {
+            const video = document.getElementById('camera-preview');
+            const placeholder = document.getElementById('camera-placeholder');
+            const snapBtn = document.getElementById('snap-btn');
+            try { 
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                video.srcObject = currentStream;
+                video.play();
+                video.classList.remove('hidden'); placeholder.classList.add('hidden'); snapBtn.classList.remove('hidden');
+            } catch (e) { console.error("Camera fail:", e); }
+        };
+
+        window.takePhoto = () => {
+            const video = document.getElementById('camera-preview'); 
+            const canvas = document.getElementById('photo-canvas');
+            const preview = document.getElementById('photo-preview'); 
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0); 
+            preview.src = canvas.toDataURL('image/jpeg', 0.8);
+            preview.classList.remove('hidden'); video.classList.add('hidden');
+            if (currentStream) { currentStream.getTracks().forEach(track => track.stop()); currentStream = null; }
+        };
+
+        // Loop Suspensões
         setInterval(() => {
-            if (localState.punishments.length > 0) {
+            if (globalState.punishments.length > 0) {
                 const now = Date.now();
-                const filtered = localState.punishments.filter(p => p.endTime > now);
-                if (filtered.length !== localState.punishments.length) {
-                    localState.punishments = filtered;
-                    saveToLocal();
+                const filtered = globalState.punishments.filter(p => p.endTime > now);
+                if (filtered.length !== globalState.punishments.length) {
+                    globalState.punishments = filtered;
+                    syncState();
                 }
                 renderPunishments();
             }
         }, 1000);
 
-        loadFromLocal();
     </script>
 </body>
 </html>
